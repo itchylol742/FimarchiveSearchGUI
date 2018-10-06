@@ -18,6 +18,7 @@ Follow the built-in instructions in the text box
 
 ## To compile and run in Eclipse IDE
 
+...
 
 
 ![alt text](/FimarchiveSearchGUIScreenshot.PNG)
