@@ -33,6 +33,6 @@ Compile and run FimArchiveSearchGUI.java
 
 ## To compile and run in Eclipse IDE __without downloading a 5.5 GB file__
 
-Same as above, but go into FimArchiveSearchGUI.java and set useSampleIndex to true. This will use a 1 MB sampleIndex.json which comes with the project.
+Same as above, but go into FimArchiveSearchGUI.java and set useSampleIndex to true. This will use a 1 MB sampleIndex.json which comes with the project, and only contains a small portion of the proper index.json.
 
 
