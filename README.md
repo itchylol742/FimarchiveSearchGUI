@@ -14,6 +14,10 @@ Extract index.json (750 MB json file) from the zip file
 
 Put those three files in the same folder
 
+Run FimarchiveSearchGUI.jar
+
 ## To compile and run in Eclipse IDE
+
+
 
 ![alt text](/FimarchiveSearchGUIScreenshot.PNG)
