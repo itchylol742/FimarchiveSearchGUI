@@ -1,11 +1,13 @@
 # FimarchiveSearchGUI
 
+![alt text](/FimarchiveSearchGUIScreenshot.PNG)
+
 The program was tested in Eclipse IDE on Windows, it might or might not work on other operating systems and IDEs
 
 **__In addition, I have never used this on another PC or shared this code with anyone before, so it might not work at all!__**
 
 A program to search and filter Fimarchive, which is an archive of every story on Fimfiction.net.
-To get Fimarchive - at the time of writing, a 5.5 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official
+To get Fimarchive - at the time of writing, a 5.5 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official (if you want to try out the program without download a 5.5 GB file, instructions below)
 
 
 ## To use without compiling (for non-programmers who just want to search stuff)
@@ -33,4 +35,4 @@ Compile and run FimArchiveSearchGUI.java
 
 Same as above, but go into FimArchiveSearchGUI.java and set useSampleIndex to true. This will use a 1 MB sampleIndex.json which comes with the project.
 
-![alt text](/FimarchiveSearchGUIScreenshot.PNG)
+
