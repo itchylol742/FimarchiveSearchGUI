@@ -4,6 +4,8 @@ To get Fimarchive - at the time of writing, a 5.5 GB file, [go here](https://www
 
 The program was tested in Eclipse IDE on Windows, it might or might not work on other operating systems and IDEs
 
+## I have never used this on another PC, so it might not work at all!
+
 ## To use without compiling (for non-programmers who just want to search stuff)
 
 Download FimarchiveSearchGUI.jar and settings.txt
@@ -18,7 +20,12 @@ Follow the built-in instructions in the text box
 
 ## To compile and run in Eclipse IDE
 
-...
+Clone the repo onto your PC
+
+Put everything in a folder in your Eclipse workspace
+/eclipseWorkspaceFolder/FimarchiveSearchGUI/all the files go here
+
+Compile and run FimArchiveSearchGUI.java
 
 
 ![alt text](/FimarchiveSearchGUIScreenshot.PNG)
