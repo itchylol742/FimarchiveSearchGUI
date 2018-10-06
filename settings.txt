@@ -1,0 +1,34 @@
+5 good tags then 5 bad tags. Hardcoded
+GOODslice of life
+GOOD
+GOOD
+GOOD
+GOOD
+BAD human
+BAD crossover
+BAD 
+BAD 
+BAD 
+Sort by:
+percent
+Min likes, min words, max words, min % rating - blank for no filter
+
+
+
+
+Completed stories only? y/n
+y
+earliest allowed publish date in the format YYYY/MM/DD - blank for no filter
+
+latest allowed publish date in the format YYYY/MM/DD - blank for no filter
+
+Hide stories with unknown publish dates? y/n
+n
+Save results to results.txt? y/n
+n
+Use subset? y/n
+y
+Title contains:
+
+Description contains:
+
