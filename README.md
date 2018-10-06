@@ -2,13 +2,12 @@
 
 ![alt text](/FimarchiveSearchGUIScreenshot.PNG)
 
-The program was tested in Eclipse IDE on Windows, it might or might not work on other operating systems and IDEs
-
-**__In addition, I have never used this on another PC or shared this code with anyone before, so it might not work at all!__**
-
 A program to search and filter Fimarchive, which is an archive of every story on Fimfiction.net.
 To get Fimarchive - at the time of writing, a 5.5 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official (if you want to try out the program without download a 5.5 GB file, instructions below)
 
+The program was tested in Eclipse IDE on Windows, it might or might not work on other operating systems and IDEs
+
+**__In addition, I have never shared this code before or used this on another PC so it might not work at all!__**
 
 ## To use without compiling (for non-programmers who just want to search stuff)
 
