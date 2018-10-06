@@ -4,7 +4,7 @@ To get Fimarchive - at the time of writing, a 5.5 GB file, [go here](https://www
 
 The program was tested in Eclipse IDE on Windows, it might or might not work on other operating systems and IDEs
 
-## I have never used this on another PC, so it might not work at all!
+**I have never used this on another PC, so it might not work at all!**
 
 ## To use without compiling (for non-programmers who just want to search stuff)
 
