@@ -8,13 +8,13 @@ The program was tested in Eclipse IDE on Windows, it might or might not work on 
 
 Download FimarchiveSearchGUI.jar and settings.txt
 
-Download Fimarchive (5.5 GB zip file)
+Download Fimarchive (the 5.5 GB file)
 
-Extract index.json (750 MB json file) from the zip file
+Extract index.json from Fimarchive (approximately 750 MB json file)
 
-Put those three files in the same folder
+Put them all in the same folder and run FimarchiveSearchGUI.jar
 
-Run FimarchiveSearchGUI.jar
+Follow the built-in instructions in the text box
 
 ## To compile and run in Eclipse IDE
 
