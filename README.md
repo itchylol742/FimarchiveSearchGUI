@@ -3,7 +3,7 @@
 ![alt text](/FimarchiveGUIdemo.gif)
 
 A program to search and filter Fimarchive, which is an archive of every story on Fimfiction.net.
-To get Fimarchive - at the time of writing, a 5.9 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official (if you want to try out the program without download a 5.5 GB file, instructions below)
+To get Fimarchive - at the time of writing, a 5.9 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official (if you want to try out the program without download a 5.9 GB file, instructions below)
 
 The program was tested on Windows, it might or might not work on other operating systems
 
@@ -11,7 +11,7 @@ The program was tested on Windows, it might or might not work on other operating
 
 Download FimarchiveSearchGUI.jar and settings.txt
 
-Download Fimarchive (the 5.5 GB file)
+Download Fimarchive (the 5.9 GB file)
 
 Extract index.json from Fimarchive (approximately 800 MB json file)
 
