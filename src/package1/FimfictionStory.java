@@ -35,6 +35,7 @@ public class FimfictionStory {
 	public String description = "unknown description";
 
 	public String datePublishedString = "unknown date";
+	public int datePublishedInt = -1;
 	public Date datePublishedObject;
 
 	public String contentRating = "unknown content rating";
@@ -141,9 +142,6 @@ public class FimfictionStory {
 		}
 	}
 	
-	public void calculateDatePublishedObject() {
-		
-	}
 
 	public static Comparator<FimfictionStory> TitleComparator = new Comparator<FimfictionStory>() {
 		public int compare(FimfictionStory s1, FimfictionStory s2) {
@@ -167,6 +165,14 @@ public class FimfictionStory {
 			// return s1.likes-s2.likes;
 			// highest likes first
 			return s2.words - s1.words;
+		}
+	};
+	public static Comparator<FimfictionStory> DatePublishedIntComparator = new Comparator<FimfictionStory>() {
+		public int compare(FimfictionStory s1, FimfictionStory s2) {
+			// lowest likes first
+			// return s1.likes-s2.likes;
+			// highest likes first
+			return s2.datePublishedInt - s1.datePublishedInt;
 		}
 	};
 	public static Comparator<FimfictionStory> ViewsComparator = new Comparator<FimfictionStory>() {

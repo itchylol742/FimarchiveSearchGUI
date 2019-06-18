@@ -97,7 +97,6 @@ public class All48TracksRandom {
 		int recordedLength = 0;
 
 		for (int i = 1; i <= 48; i++) {
-			// System.out.println(i);
 			shuffledNumbers.add(i);
 		}
 
@@ -109,18 +108,15 @@ public class All48TracksRandom {
 			badNumbers.add(28);// N64 toad's turnpike
 			badNumbers.add(29);// GCN dry dry desert
 			badNumbers.add(30);// SNES donut plains 3
-			// badNumbers.add(1);
 		}
 
 		try {
-
 			BufferedWriter out = new BufferedWriter(new FileWriter(filename));
-			printlnToConsoleAndTextFile(getLongDate(date), out);
-
-			for (int i = 0; i <= 47; i++) {// cycle through numbers
+			
+			for (int i = 0; i <= 47; i++) {// cycle through numbers (arrayList is already shuffled)
 				if (badNumbers.contains(shuffledNumbers.get(i))) {
-					printlnToConsoleAndTextFile(
-							"(Skipped) " + shuffledNumbers.get(i) + " - " + tracks.get(shuffledNumbers.get(i)), out);
+					printlnToConsoleAndTextFile("(Skipped) " + shuffledNumbers.get(i) 
+					+ " - " + tracks.get(shuffledNumbers.get(i)), out);
 					// skip one
 				} else {
 					if ((withinBlockCounter) % blockSize == 0) {// new line every 5 numbers
@@ -145,11 +141,6 @@ public class All48TracksRandom {
 
 			}
 			out.close();
-
-			printlnToConsoleAndTextFile("", out);
-			printlnToConsoleAndTextFile("", out);
-			printlnToConsoleAndTextFile("(1 - 4)(5 - 8)(9 -12)(13-16)(17-20)(21-24)", out);
-			printlnToConsoleAndTextFile("(25-28)(29-32)(33-36)(37-40)(41-44)(45-48)", out);
 		} catch (Exception e) {
 		}
 

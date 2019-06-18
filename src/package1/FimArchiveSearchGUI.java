@@ -1,9 +1,11 @@
+//Warning: contains lots of spaghetti code
+//    LOTS
+//Last edited June 18, 2019 by itchylol742
+
 package package1;
 
 import java.awt.EventQueue;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-
 import java.awt.TextArea;
 import java.awt.Font;
 import javax.swing.JRadioButton;
@@ -13,26 +15,24 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
-import javax.jws.soap.SOAPBinding.Use;
+import javax.lang.model.element.VariableElement;
 import javax.swing.ButtonGroup;
 import java.awt.Button;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileInputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.awt.event.ActionEvent;
@@ -41,6 +41,19 @@ import java.awt.Label;
 import java.awt.Checkbox;
 import java.awt.Color;
 import javax.swing.JTextArea;
+import javax.swing.SwingWorker;
+
+import org.apache.lucene.document.DateTools;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.FloatPoint;
+import org.apache.lucene.document.IntPoint;
+import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.document.SortedNumericDocValuesField;
+import org.apache.lucene.document.StoredField;
+import org.apache.lucene.document.StringField;
+import org.apache.lucene.index.IndexWriter;
+
 import java.awt.SystemColor;
 import javax.swing.JTabbedPane;
 import javax.swing.JPanel;
@@ -49,16 +62,40 @@ import java.awt.BorderLayout;
 import javax.swing.Icon;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.Toolkit;
-import javax.swing.UIManager;
+
+import java.nio.file.Paths;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.SortField.Type;
+import org.apache.lucene.search.SortedNumericSortField;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.WildcardQuery;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.BytesRef;
+
+import javax.swing.BoxLayout;
+import java.awt.Component;
+import net.miginfocom.swing.MigLayout;
+import javax.swing.JTextField;
+import javax.swing.JLabel;
+import javax.swing.SwingConstants;
 
 public class FimArchiveSearchGUI {
-	
-	
-	static boolean useSampleIndex = false;
 
-	// to do: show sequels and prequels
-	// autocomplete!?
+	static boolean useSampleIndex = false;
+	String eol;
 
 	// Logic
 
@@ -87,9 +124,9 @@ public class FimArchiveSearchGUI {
 	static float minPercentageRatingFloat = -1;
 
 	static SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd");
-	static final int maxNumberOfResultsShown = 500;
-	static final int updateInterval = 10000;
-	static final int resultBufferPrintInterval = 10;
+	static final int maxNumberOfResultsShown = 5000;
+	static final int updateInterval = 2500;
+	static final int resultBufferPrintInterval = 1000000;
 	static final int descriptionMaxLineLength = 120;// unused, try to get it working without ruining the description
 
 	static String sortByString = "default";
@@ -137,6 +174,7 @@ public class FimArchiveSearchGUI {
 	static Checkbox completedOnlyCheckbox = new Checkbox("Completed stories only");
 	static Checkbox writeResultsCheckbox = new Checkbox();
 	static Checkbox useSubsetCheckbox = new Checkbox();
+	static Checkbox LimitResultsCheckbox = new Checkbox();
 
 	private ButtonGroup searchByRadioButtons = new ButtonGroup();
 
@@ -148,19 +186,31 @@ public class FimArchiveSearchGUI {
 	static TextField latestAllowedPublishDate = new TextField();
 	static TextField earliestAllowedPublishDate = new TextField();
 
-	static Checkbox hideUnknownPublishDateCheckbox = new Checkbox();
-
 	private final Label label_3 = new Label("Minimum Likes");
 	private final Label label_4 = new Label("Minimum Words");
 	private final Label label_5 = new Label("Maximum Words");
 	private final Label label_6 = new Label("YYYY/MM/DD");
-	private final Label label_8 = new Label("Published after");
-	private final Label label_9 = new Label("Published before");
+	private final Label label_8 = new Label("Published after/on");
+	private final Label label_9 = new Label("Published before/on");
 	private final JPanel panel = new JPanel();
 	private final JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
 	private final JPanel panel_1 = new JPanel();
 	private final JTextArea txtrMadeByuitchylol = new JTextArea();
 	private final Label label_12 = new Label("Description Contains");
+	private final JPanel panel_3 = new JPanel();
+	private final JPanel panel_4 = new JPanel();
+	private final JPanel panel_5 = new JPanel();
+	private final JPanel numberFilters = new JPanel();
+	private final JPanel wordFilters = new JPanel();
+	private final JLabel lblPrequelifThere = new JLabel("Prequel (if there is one)");
+	private final JLabel lblTheStoryLooking = new JLabel("The story in question");
+	private final JLabel lblSequelsIfThere = new JLabel("Sequel(s) if there is/are any");
+	private final static TextField IDfield = new TextField();
+	private final static TextArea sequels = new TextArea();
+	private final static TextArea prequel = new TextArea();
+	private final static JTextField siq = new JTextField();
+	private final static Label label_14 = new Label("Author Name");
+	private final static TextField authorTextField = new TextField();
 
 	/**
 	 * Launch the application.
@@ -190,8 +240,10 @@ public class FimArchiveSearchGUI {
 	 * Initialize the contents of the frame.
 	 */
 	private void initialize() {
+		eol = System.lineSeparator();
+		siq.setFont(new Font("Arial", Font.PLAIN, 20));
+		siq.setColumns(10);
 		// Logic
-
 		arrayOfUselessProperties.clear();
 		arrayOfUselessProperties.add("archive");
 		arrayOfUselessProperties.add("avatar");
@@ -202,7 +254,7 @@ public class FimArchiveSearchGUI {
 		// GUI
 
 		frmTest = new JFrame();
-		frmTest.setTitle("Fimarchive Searcher by itchylol742");
+		frmTest.setTitle("Fimarchive Searcher 1.0 by itchylol742");
 		frmTest.setBounds(150, 25, 1394, 953);
 		frmTest.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frmTest.getContentPane().setLayout(new BorderLayout(0, 0));
@@ -214,258 +266,188 @@ public class FimArchiveSearchGUI {
 		tabbedPane.addTab("Search", (Icon) null, panel, null);
 		tabbedPane.setEnabledAt(0, true);
 		panel.setBackground(SystemColor.menu);
-		panel.setLayout(null);
-
-		JTextArea txtrLeave = new JTextArea();
-		txtrLeave.setBounds(1182, 780, 164, 45);
-		panel.add(txtrLeave);
-		txtrLeave.setForeground(Color.GRAY);
-		txtrLeave.setFont(new Font("Arial", Font.PLAIN, 15));
-		txtrLeave.setBackground(SystemColor.menu);
-		txtrLeave.setEditable(false);
-		txtrLeave.setText("Leave fields empty for \r\nno limit/filter");
+		panel.setLayout(new MigLayout("", "[80%,fill][20%,fill]", "[34%,fill][1%,fill][65%,fill]"));
 
 		textArea = new TextArea();
-		textArea.setBounds(27, 282, 1133, 599);
-		panel.add(textArea);
 		textArea.setFont(new Font("Arial", Font.PLAIN, 20));
-		latestAllowedPublishDate.setBounds(1182, 560, 164, 34);
-		panel.add(latestAllowedPublishDate);
-		latestAllowedPublishDate.setFont(new Font("Arial", Font.PLAIN, 21));
-		label_9.setBounds(1182, 520, 158, 34);
-		panel.add(label_9);
-		label_9.setFont(new Font("Arial", Font.PLAIN, 20));
-		label_6.setBounds(1182, 489, 158, 23);
-		panel.add(label_6);
-		label_6.setForeground(Color.GRAY);
-		label_6.setFont(new Font("Arial", Font.PLAIN, 15));
-		earliestAllowedPublishDate.setBounds(1182, 440, 164, 34);
-		panel.add(earliestAllowedPublishDate);
-		earliestAllowedPublishDate.setFont(new Font("Arial", Font.PLAIN, 21));
-		label_8.setBounds(1182, 400, 158, 34);
-		panel.add(label_8);
-		label_8.setFont(new Font("Arial", Font.PLAIN, 20));
-		maxWordsText.setBounds(1182, 320, 164, 34);
-		panel.add(maxWordsText);
-		maxWordsText.setText("10");
-		maxWordsText.setFont(new Font("Arial", Font.PLAIN, 20));
-		label_5.setBounds(1182, 280, 158, 34);
-		panel.add(label_5);
-		label_5.setFont(new Font("Arial", Font.PLAIN, 20));
-		minWordsText.setBounds(1182, 240, 164, 34);
-		panel.add(minWordsText);
-		minWordsText.setText("10");
-		minWordsText.setFont(new Font("Arial", Font.PLAIN, 20));
-		label_4.setBounds(1182, 200, 158, 34);
-		panel.add(label_4);
-		label_4.setFont(new Font("Arial", Font.PLAIN, 20));
-		minLikesText.setBounds(1182, 40, 164, 34);
-		panel.add(minLikesText);
+		panel.add(textArea, "cell 0 2,grow");
+
+		panel.add(numberFilters, "cell 1 0 1 3,grow");
+		numberFilters.setLayout(new BoxLayout(numberFilters, BoxLayout.Y_AXIS));
+		numberFilters.add(label_3);
+		label_3.setFont(new Font("Arial", Font.PLAIN, 30));
+		numberFilters.add(minLikesText);
 		minLikesText.setFont(new Font("Arial", Font.PLAIN, 20));
 		minLikesText.setText("10");
-		label_3.setBounds(1182, 0, 158, 34);
-		panel.add(label_3);
-		label_3.setFont(new Font("Arial", Font.PLAIN, 20));
-		completedOnlyCheckbox.setBounds(913, 222, 225, 23);
-		panel.add(completedOnlyCheckbox);
-
-		completedOnlyCheckbox.setFont(new Font("Arial", Font.PLAIN, 18));
-		searchByRadioButtons.add(oldestFirstRadioButton);
-		oldestFirstRadioButton.setBounds(909, 170, 158, 23);
-		panel.add(oldestFirstRadioButton);
-		oldestFirstRadioButton.setFont(new Font("Arial", Font.PLAIN, 18));
-		searchByRadioButtons.add(newestFirstRadioButton);
-		newestFirstRadioButton.setBounds(909, 144, 158, 23);
-		panel.add(newestFirstRadioButton);
-		newestFirstRadioButton.setFont(new Font("Arial", Font.PLAIN, 18));
-		wordsRadioButton.setBounds(909, 118, 109, 23);
-		panel.add(wordsRadioButton);
-
-		wordsRadioButton.setFont(new Font("Arial", Font.PLAIN, 18));
-		searchByRadioButtons.add(wordsRadioButton);
-		likesRadioButton.setBounds(909, 66, 109, 23);
-		panel.add(likesRadioButton);
-
-		likesRadioButton.setFont(new Font("Arial", Font.PLAIN, 18));
-		searchByRadioButtons.add(likesRadioButton);
-		viewsRadioButton.setBounds(909, 40, 109, 23);
-		panel.add(viewsRadioButton);
-
-		// radio buttons for sorting
-
-		viewsRadioButton.setFont(new Font("Arial", Font.PLAIN, 18));
-		searchByRadioButtons.add(viewsRadioButton);
-
-		Label label = new Label("Sort By");
-		label.setBounds(909, 0, 126, 34);
-		panel.add(label);
-		label.setFont(new Font("Arial", Font.PLAIN, 25));
-
-		Label label_2 = new Label("Bad Tags");
-		label_2.setBounds(723, 0, 126, 34);
-		panel.add(label_2);
-		label_2.setFont(new Font("Arial", Font.PLAIN, 25));
-		badTag1.setBounds(718, 48, 164, 34);
-		panel.add(badTag1);
-
-		badTag1.setFont(new Font("Arial", Font.PLAIN, 21));
-
-		badTag2.setBounds(718, 96, 164, 34);
-		panel.add(badTag2);
-
-		badTag2.setFont(new Font("Arial", Font.PLAIN, 21));
-		badTag3.setBounds(718, 146, 164, 34);
-		panel.add(badTag3);
-
-		badTag3.setFont(new Font("Arial", Font.PLAIN, 21));
-		badTag4.setBounds(718, 194, 164, 34);
-		panel.add(badTag4);
-		badTag4.setFont(new Font("Arial", Font.PLAIN, 21));
-		badTag5.setBounds(718, 240, 164, 34);
-		panel.add(badTag5);
-		badTag5.setFont(new Font("Arial", Font.PLAIN, 21));
-
-		//
-
-		Button button = new Button("Search");
-		button.setBounds(299, 194, 355, 81);
-		panel.add(button);
-		button.setFont(new Font("Arial", Font.PLAIN, 46));
-		goodTag5.setBounds(80, 240, 164, 34);
-		panel.add(goodTag5);
-		goodTag5.setFont(new Font("Arial", Font.PLAIN, 21));
-		goodTag4.setBounds(80, 194, 164, 34);
-		panel.add(goodTag4);
-		goodTag4.setFont(new Font("Arial", Font.PLAIN, 21));
-		goodTag3.setBounds(80, 146, 164, 34);
-		panel.add(goodTag3);
-
-		goodTag3.setFont(new Font("Arial", Font.PLAIN, 21));
-		goodTag2.setBounds(80, 96, 164, 34);
-		panel.add(goodTag2);
-
-		goodTag2.setFont(new Font("Arial", Font.PLAIN, 21));
-		goodTag1.setBounds(80, 48, 164, 34);
-		panel.add(goodTag1);
-
-		goodTag1.setFont(new Font("Arial", Font.PLAIN, 21));
-
-		Label label_1 = new Label("Good Tags");
-		label_1.setBounds(80, 0, 126, 34);
-		panel.add(label_1);
-		label_1.setFont(new Font("Arial", Font.PLAIN, 25));
-
-		hideUnknownPublishDateCheckbox.setFont(new Font("Arial", Font.PLAIN, 18));
-		hideUnknownPublishDateCheckbox.setBounds(1166, 634, 14, 23);
-		panel.add(hideUnknownPublishDateCheckbox);
-
-		JTextArea txtrHideStoriesWith = new JTextArea();
-		txtrHideStoriesWith.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseClicked(MouseEvent arg0) {
-				hideUnknownPublishDateCheckbox.setState(!hideUnknownPublishDateCheckbox.getState());
-			}
-		});
-		txtrHideStoriesWith.setText("Hide stories with \r\nunknown publish dates");
-		txtrHideStoriesWith.setForeground(Color.BLACK);
-		txtrHideStoriesWith.setFont(new Font("Arial", Font.PLAIN, 18));
-		txtrHideStoriesWith.setEditable(false);
-		txtrHideStoriesWith.setBackground(SystemColor.menu);
-		txtrHideStoriesWith.setBounds(1182, 634, 187, 60);
-		panel.add(txtrHideStoriesWith);
-		txtrMadeByuitchylol.setText("Made by itchylol742");
-		txtrMadeByuitchylol.setForeground(Color.GRAY);
-		txtrMadeByuitchylol.setFont(new Font("Arial", Font.PLAIN, 15));
-		txtrMadeByuitchylol.setEditable(false);
-		txtrMadeByuitchylol.setBackground(SystemColor.menu);
-		txtrMadeByuitchylol.setBounds(1182, 836, 164, 34);
-
-		panel.add(txtrMadeByuitchylol);
 
 		Label label_7 = new Label("Minimum % Rating");
-		label_7.setFont(new Font("Arial", Font.PLAIN, 20));
-		label_7.setBounds(1182, 80, 181, 34);
-		panel.add(label_7);
+		numberFilters.add(label_7);
+		label_7.setFont(new Font("Arial", Font.PLAIN, 30));
+
+		Label label_13 = new Label("Decimals allowed for % rating");
+		numberFilters.add(label_13);
+		label_13.setForeground(Color.GRAY);
+		label_13.setFont(new Font("Arial", Font.PLAIN, 20));
+		numberFilters.add(minPercentRatingTextBox);
 
 		minPercentRatingTextBox.setText("60");
 		minPercentRatingTextBox.setFont(new Font("Arial", Font.PLAIN, 20));
-		minPercentRatingTextBox.setBounds(1182, 120, 164, 34);
-		panel.add(minPercentRatingTextBox);
+		numberFilters.add(label_4);
+		label_4.setFont(new Font("Arial", Font.PLAIN, 30));
+		numberFilters.add(minWordsText);
+		minWordsText.setText("10");
+		minWordsText.setFont(new Font("Arial", Font.PLAIN, 20));
+		numberFilters.add(label_5);
+		label_5.setFont(new Font("Arial", Font.PLAIN, 30));
+		numberFilters.add(maxWordsText);
+		maxWordsText.setText("10");
+		maxWordsText.setFont(new Font("Arial", Font.PLAIN, 20));
+		numberFilters.add(label_8);
+		label_8.setFont(new Font("Arial", Font.PLAIN, 30));
+		numberFilters.add(earliestAllowedPublishDate);
+		earliestAllowedPublishDate.setFont(new Font("Arial", Font.PLAIN, 21));
+		numberFilters.add(label_6);
+		label_6.setForeground(Color.GRAY);
+		label_6.setFont(new Font("Arial", Font.PLAIN, 20));
+		numberFilters.add(label_9);
+		label_9.setFont(new Font("Arial", Font.PLAIN, 30));
+		numberFilters.add(latestAllowedPublishDate);
+		latestAllowedPublishDate.setFont(new Font("Arial", Font.PLAIN, 21));
+		numberFilters.add(completedOnlyCheckbox);
 
-		searchByRadioButtons.add(percentRatingRadioButton);
-		percentRatingRadioButton.setFont(new Font("Arial", Font.PLAIN, 18));
-		percentRatingRadioButton.setBounds(909, 92, 181, 23);
-		panel.add(percentRatingRadioButton);
+		completedOnlyCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
+		numberFilters.add(LimitResultsCheckbox);
+		LimitResultsCheckbox.setLabel("Limit 5000 results (avoid lag)");
+
+		LimitResultsCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
+		numberFilters.add(writeResultsCheckbox);
 
 		writeResultsCheckbox.setLabel("Write results to file");
-		writeResultsCheckbox.setFont(new Font("Arial", Font.PLAIN, 18));
-		writeResultsCheckbox.setBounds(1166, 700, 180, 23);
-		panel.add(writeResultsCheckbox);
+		writeResultsCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
+		numberFilters.add(useSubsetCheckbox);
 
-		useSubsetCheckbox.setLabel("optimizedIndex.json");
-		useSubsetCheckbox.setFont(new Font("Arial", Font.PLAIN, 18));
-		useSubsetCheckbox.setBounds(1166, 729, 203, 23);
-		panel.add(useSubsetCheckbox);
+		useSubsetCheckbox.setLabel("Done Lucene setup");
+		useSubsetCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
+
+		JTextArea txtrLeave = new JTextArea();
+		numberFilters.add(txtrLeave);
+		txtrLeave.setForeground(Color.GRAY);
+		txtrLeave.setFont(new Font("Arial", Font.PLAIN, 20));
+		txtrLeave.setBackground(SystemColor.menu);
+		txtrLeave.setEditable(false);
+		txtrLeave.setText("Leave fields empty for \r\nno limit/filter");
+		numberFilters.add(txtrMadeByuitchylol);
+		txtrMadeByuitchylol.setText("Made by itchylol742");
+		txtrMadeByuitchylol.setForeground(Color.GRAY);
+		txtrMadeByuitchylol.setFont(new Font("Arial", Font.PLAIN, 20));
+		txtrMadeByuitchylol.setEditable(false);
+		txtrMadeByuitchylol.setBackground(SystemColor.menu);
+
+		panel.add(wordFilters, "cell 0 0");
+		wordFilters.setLayout(new BoxLayout(wordFilters, BoxLayout.X_AXIS));
+
+		JPanel panel_2 = new JPanel();
+		wordFilters.add(panel_2);
+		panel_2.setLayout(new BoxLayout(panel_2, BoxLayout.Y_AXIS));
+
+		Label label_1 = new Label("Good Tags");
+		panel_2.add(label_1);
+		label_1.setFont(new Font("Arial", Font.PLAIN, 30));
+		panel_2.add(goodTag1);
+
+		goodTag1.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_2.add(goodTag2);
+
+		goodTag2.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_2.add(goodTag3);
+
+		goodTag3.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_2.add(goodTag4);
+		goodTag4.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_2.add(goodTag5);
+		goodTag5.setFont(new Font("Arial", Font.PLAIN, 21));
+		wordFilters.add(panel_3);
+		panel_3.setLayout(new BoxLayout(panel_3, BoxLayout.Y_AXIS));
+
+		Label label_2 = new Label("Bad Tags ");
+		panel_3.add(label_2);
+		label_2.setFont(new Font("Arial", Font.PLAIN, 30));
+		panel_3.add(badTag1);
+
+		badTag1.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_3.add(badTag2);
+
+		badTag2.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_3.add(badTag3);
+
+		badTag3.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_3.add(badTag4);
+		badTag4.setFont(new Font("Arial", Font.PLAIN, 21));
+		panel_3.add(badTag5);
+		badTag5.setFont(new Font("Arial", Font.PLAIN, 21));
+		wordFilters.add(panel_4);
+		panel_4.setLayout(new BoxLayout(panel_4, BoxLayout.Y_AXIS));
 
 		Label label_11 = new Label("Title Contains");
-		label_11.setFont(new Font("Arial", Font.PLAIN, 25));
-		label_11.setBounds(299, 0, 168, 34);
-		panel.add(label_11);
+		panel_4.add(label_11);
+		label_11.setFont(new Font("Arial", Font.PLAIN, 30));
+		panel_4.add(titleContainsTextBox);
 
 		titleContainsTextBox.setFont(new Font("Arial", Font.PLAIN, 21));
-		titleContainsTextBox.setBounds(299, 48, 355, 34);
-		panel.add(titleContainsTextBox);
+		panel_4.add(label_12);
+		label_12.setFont(new Font("Arial", Font.PLAIN, 30));
+		panel_4.add(descriptionContainsTextBox);
 		descriptionContainsTextBox.setText("<dynamic");
 		descriptionContainsTextBox.setFont(new Font("Arial", Font.PLAIN, 21));
-		descriptionContainsTextBox.setBounds(299, 146, 355, 34);
+		label_14.setFont(new Font("Arial", Font.PLAIN, 30));
 
-		panel.add(descriptionContainsTextBox);
-		label_12.setFont(new Font("Arial", Font.PLAIN, 25));
-		label_12.setBounds(299, 96, 257, 34);
+		panel_4.add(label_14);
+		authorTextField.setFont(new Font("Arial", Font.PLAIN, 21));
 
-		panel.add(label_12);
+		panel_4.add(authorTextField);
 
-		tabbedPane.addTab("Sequel/Prequel finder (unfinished)", null, panel_1, null);
-		tabbedPane.setEnabledAt(1, true);
-		panel_1.setLayout(null);
+		Button button = new Button("Search");
+		panel_4.add(button);
+		button.setFont(new Font("Arial", Font.PLAIN, 46));
+		wordFilters.add(panel_5);
+		panel_5.setLayout(new BoxLayout(panel_5, BoxLayout.Y_AXIS));
 
-		TextField storyIDField = new TextField();
-		storyIDField.setFont(new Font("Arial", Font.PLAIN, 21));
-		storyIDField.setBounds(62, 140, 217, 34);
-		panel_1.add(storyIDField);
+		Label label = new Label("Sort By");
+		label.setAlignment(Label.CENTER);
+		panel_5.add(label);
+		label.setFont(new Font("Arial", Font.PLAIN, 30));
+		panel_5.add(viewsRadioButton);
 
-		JTextArea txtrEnterTheStory = new JTextArea();
-		txtrEnterTheStory.setText(
-				"Enter the story ID of a story, and it will find any sequels and prequels the story has.\r\nA story can only have maximum 1 prequel, but it can have any number of sequels. ");
-		txtrEnterTheStory.setForeground(Color.GRAY);
-		txtrEnterTheStory.setFont(new Font("Arial", Font.PLAIN, 15));
-		txtrEnterTheStory.setEditable(false);
-		txtrEnterTheStory.setBackground(SystemColor.menu);
-		txtrEnterTheStory.setBounds(62, 36, 553, 45);
-		panel_1.add(txtrEnterTheStory);
+		// radio buttons for sorting
 
-		Label label_10 = new Label("Story ID");
-		label_10.setFont(new Font("Arial", Font.PLAIN, 20));
-		label_10.setBounds(62, 87, 158, 34);
-		panel_1.add(label_10);
+		viewsRadioButton.setFont(new Font("Arial", Font.PLAIN, 24));
+		searchByRadioButtons.add(viewsRadioButton);
+		panel_5.add(likesRadioButton);
 
-		Button button_1 = new Button("Find sequels/prequels");
-		button_1.setFont(new Font("Arial", Font.PLAIN, 20));
-		button_1.setBounds(301, 140, 217, 34);
-		panel_1.add(button_1);
+		likesRadioButton.setFont(new Font("Arial", Font.PLAIN, 24));
+		searchByRadioButtons.add(likesRadioButton);
 
-		JComboBox comboBox = new JComboBox();
-		comboBox.setEditable(true);
-		comboBox.setBounds(161, 265, 421, 54);
-		panel_1.add(comboBox);
+		searchByRadioButtons.add(percentRatingRadioButton);
+		panel_5.add(percentRatingRadioButton);
+		percentRatingRadioButton.setFont(new Font("Arial", Font.PLAIN, 24));
+		panel_5.add(wordsRadioButton);
+
+		wordsRadioButton.setFont(new Font("Arial", Font.PLAIN, 24));
+		searchByRadioButtons.add(wordsRadioButton);
+		searchByRadioButtons.add(newestFirstRadioButton);
+		panel_5.add(newestFirstRadioButton);
+		newestFirstRadioButton.setFont(new Font("Arial", Font.PLAIN, 24));
+		searchByRadioButtons.add(oldestFirstRadioButton);
+		panel_5.add(oldestFirstRadioButton);
+		oldestFirstRadioButton.setFont(new Font("Arial", Font.PLAIN, 24));
 		button.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				try {
 					if (useSubsetCheckbox.getState()) {
-						// subset
-						updateTextAreaFromOptimizedIndex();
+						// find stuff (after first time run)
+						updateTextAreaFromLuceneIndex();
 					} else {
-						// normal operation
+						// create Lucene index (first time run)
 						createOptimizedIndex();
 					}
 				} catch (Exception e) {
@@ -474,32 +456,257 @@ public class FimArchiveSearchGUI {
 			}
 		});
 
+		tabbedPane.addTab("Sequel/Prequel finder", null, panel_1, null);
+		tabbedPane.setEnabledAt(1, true);
+		panel_1.setLayout(new MigLayout("", "[40%,grow,fill][40%,fill][20%,grow,fill]",
+				"[7%,fill][4.71%,fill][2%,fill][25%,grow,fill][10%,fill][25%,fill]"));
+
+		// miglayout2
+		Label label_10 = new Label("Story ID");
+		label_10.setAlignment(Label.CENTER);
+		label_10.setFont(new Font("Arial", Font.PLAIN, 20));
+		panel_1.add(label_10, "cell 0 0,grow");
+		JTextArea txtrEnterTheStory = new JTextArea();
+		txtrEnterTheStory.setText(
+				"Enter the story ID of a story, and it will find any sequels and prequels the story has.\r\nA story can only have maximum 1 prequel, but it can have any number of sequels. ");
+		txtrEnterTheStory.setForeground(Color.GRAY);
+		txtrEnterTheStory.setFont(new Font("Arial", Font.PLAIN, 20));
+		txtrEnterTheStory.setEditable(false);
+		txtrEnterTheStory.setBackground(SystemColor.menu);
+		panel_1.add(txtrEnterTheStory, "cell 1 0 2 1");
+		IDfield.setFont(new Font("Arial", Font.PLAIN, 20));
+
+		panel_1.add(IDfield, "cell 0 1");
+
+		Button button_1 = new Button("Find sequels/prequels");
+
+		button_1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				try {
+					updatePrequelAndSequels();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+
+		button_1.setFont(new Font("Arial", Font.PLAIN, 20));
+		panel_1.add(button_1, "cell 1 1,alignx left,growy");
+		prequel.setRows(5);
+		prequel.setFont(new Font("Arial", Font.PLAIN, 20));
+
+		panel_1.add(prequel, "cell 0 3 2 1");
+		lblPrequelifThere.setFont(new Font("Tahoma", Font.PLAIN, 24));
+		lblPrequelifThere.setHorizontalAlignment(SwingConstants.CENTER);
+
+		panel_1.add(lblPrequelifThere, "cell 2 3");
+
+		panel_1.add(siq, "cell 0 4 2 1,growx");
+		lblTheStoryLooking.setHorizontalAlignment(SwingConstants.CENTER);
+		lblTheStoryLooking.setFont(new Font("Tahoma", Font.PLAIN, 24));
+
+		panel_1.add(lblTheStoryLooking, "cell 2 4");
+		sequels.setFont(new Font("Arial", Font.PLAIN, 20));
+
+		panel_1.add(sequels, "cell 0 5 2 1");
+		lblSequelsIfThere.setHorizontalAlignment(SwingConstants.CENTER);
+		lblSequelsIfThere.setFont(new Font("Tahoma", Font.PLAIN, 24));
+
+		panel_1.add(lblSequelsIfThere, "cell 2 5");
+
 		loadTagTextAreasIntoTagTestAreasArrayList();
 
 		loadSettings();
-		goodPrint("IMPORTANT! If this is your first time running the program, have optimizedIndex.json UNCHECKED\n");
-		goodPrint("This will created optimizedIndex.json from information found in index.json\n");
-		goodPrint("After that, run the program with optimizedIndex.json checked\n");
-		goodPrint("optimizedIndex.json is 1/5th the size of index.json. This makes the program 5 times faster!\n");
-		goodPrint("\n");
+		goodPrint("IMPORTANT! If this is your first time running the program, have Done Lucene setup UNCHECKED" + eol);
+		goodPrint("This will created the Lucene index from information found in index.json" + eol);
+		goodPrint("After that, run the program with Done Lucene setup checked" + eol);
+		goodPrint(eol);
 
-		goodPrint("- Tags are not case sensitive. Type in proper caps, no caps, or all caps if you want\n");
+		goodPrint("- Nothing is case sensitive. Type in proper caps, no caps, or all caps if you want" + eol);
 		goodPrint(
-				"- Some stories have -1 likes due to metadata error, so even setting min likes to 0 will filter them out\n");
-		goodPrint("- Some stories have 0 (or very low number) words due to metadata error...?,\n");
-		goodPrint("    - Or maybe somehow those short stories got on the site\n");
-		goodPrint("- Percentage rating assumes there's 1 more like and 1 more dislike than there actually is\n");
-		goodPrint("    - The +1 makes sure stories with few ratings don't get perfect score\n");
-		goodPrint("- Dates are in the format YYYY/MM/DD\n");
-		goodPrint("    - but you don't need 0's before the month and day if it's less than 10\n");
-		goodPrint("    - For exmaple, 2015/02/03 is valid and 2015/2/3 is also valid\n");
+				"- Some stories have -1 likes due to metadata error, so even setting min likes to 0 will filter them out"
+						+ eol);
+		goodPrint("- Some stories have 0 (or very low number) words due to metadata error...?," + eol);
+		goodPrint("    - Or maybe somehow those short stories got on the site" + eol);
+		goodPrint("- Percentage rating assumes there's 1 more like and 1 more dislike than there actually is" + eol);
+		goodPrint("    - So stories with few ratings don't get perfect score" + eol);
+		goodPrint("- Dates are in the format YYYY/MM/DD" + eol);
+		goodPrint("    - 0's before the month and day are REQUIRED if it's less than 10" + eol);
+		goodPrint("    - For exmaple, 2015/02/03 is valid, but 2015/2/3 is invalid" + eol);
 
 	}
 
 	// my methods below
 
+	public static void updatePrequelAndSequels()
+			throws IOException, org.apache.lucene.queryparser.classic.ParseException, java.text.ParseException {
+		readTextBoxesIntoMemory();
+		saveSettings();
+		prequel.setText("");
+		siq.setText("");
+		sequels.setText("");
+
+		if (IDfield.getText().length() == 0) {
+			goodPrint(("ID is required"), 1);
+			return;
+		}
+
+		// 0. Specify the analyzer for tokenizing text.
+		// The same analyzer should be used for indexing and searching
+		StandardAnalyzer analyzer = new StandardAnalyzer();
+
+		// 1. create the index
+		String SRC_FOLDER = "theLuceneIAAndex";
+
+		// Directory index = new RAMDirectory();
+		FSDirectory index = FSDirectory.open(Paths.get(SRC_FOLDER));
+		IndexWriterConfig config = new IndexWriterConfig(analyzer);
+		IndexWriter w = new IndexWriter(index, config);
+
+		// 2. query
+		if (!isThisStringAnInteger(IDfield.getText())) {
+			goodPrint("ID must be a number", 1);
+			w.close();
+			return;
+		}
+		int theIDToLookFor = Integer.parseInt(IDfield.getText());
+
+		Query idQuery = IntPoint.newExactQuery("ID", theIDToLookFor);
+
+		w.close();
+
+		// 3. search
+		int hitsPerPage = 999999;
+		IndexReader reader1 = DirectoryReader.open(index);
+		IndexSearcher searcher = new IndexSearcher(reader1);
+
+		Sort sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, false));
+
+		TopDocs docs = searcher.search(idQuery, hitsPerPage, sort, true, true);
+		ScoreDoc[] hits = docs.scoreDocs;
+
+		if (hits.length == 0) {
+			goodPrint("There is no story with ID " + theIDToLookFor, 2);
+			return;
+		}
+
+		// 4. display results
+
+		String endOfLine = System.lineSeparator();
+		String endOfField = ", ";
+
+		int prequelId = -1;
+
+		StringBuilder stringBuilder = new StringBuilder("");
+
+		for (int i = 0; i < hits.length; ++i) {
+			int docId = hits[i].doc;
+			Document d = searcher.doc(docId);
+			stringBuilder.append(d.get("title") + endOfField);
+			stringBuilder.append(" by " + d.get("author"));
+			if (Integer.parseInt(d.get("prequelID")) != -1) {
+				prequelId = Integer.parseInt(d.get("prequelID"));
+			} else {
+				goodPrint(("The story in question has no prequel"), 1);
+			}
+		}
+
+		goodPrint(stringBuilder.toString(), 2);
+
+		if (prequelId > 0) {
+			Query prequelQuery = IntPoint.newExactQuery("ID", prequelId);
+
+			docs = searcher.search(prequelQuery, hitsPerPage, sort, true, true);
+			// TopDocs docs = searcher.search(booleanQuery, hitsPerPage);
+			hits = docs.scoreDocs;
+
+			stringBuilder = new StringBuilder("");
+
+			for (int i = 0; i < hits.length; ++i) {
+				int docId = hits[i].doc;
+				Document d = searcher.doc(docId);
+				stringBuilder.append("--Story Title: " + d.get("title") + endOfField);
+				stringBuilder.append("Author: " + d.get("author") + endOfField);
+				stringBuilder.append("ID: " + d.get("ID") + endOfLine);
+				if (Integer.parseInt(d.get("prequelID")) != -1) {
+					stringBuilder.append("-This story has a prequel. ID of prequel: " + d.get("prequelID") + endOfLine);
+					prequelId = Integer.parseInt(d.get("prequelID"));
+				}
+
+				stringBuilder.append("Description: " + d.get("description") + endOfLine);
+				stringBuilder.append("Date Published: " + d.get("datePublishedString") + endOfField);
+				stringBuilder.append("Completion Status: " + d.get("completionStatus") + endOfLine);
+				stringBuilder.append("Likes: " + d.get("likes") + endOfField);
+				stringBuilder.append("Dislikes: " + d.get("dislikes") + endOfField);
+				stringBuilder.append("Percent Rating: " + d.get("percentRating") + endOfField);
+				stringBuilder.append("Views: " + d.get("views") + endOfField);
+				stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
+				stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
+				stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
+				stringBuilder.append(endOfLine);
+			}
+
+			goodPrint(stringBuilder.toString(), 1);
+		}
+
+		Query sequelQuery = IntPoint.newExactQuery("prequelID", theIDToLookFor);
+
+		docs = searcher.search(sequelQuery, hitsPerPage, sort, true, true);
+		hits = docs.scoreDocs;
+
+		stringBuilder = new StringBuilder("");
+
+		for (int i = 0; i < hits.length; ++i) {
+			int docId = hits[i].doc;
+			Document d = searcher.doc(docId);
+			stringBuilder.append("--Story Title: " + d.get("title") + endOfField);
+			stringBuilder.append("Author: " + d.get("author") + endOfField);
+			stringBuilder.append("ID: " + d.get("ID") + endOfLine);
+			if (Integer.parseInt(d.get("prequelID")) != -1) {
+				stringBuilder.append(
+						"This story has a prequel (obviously). ID of prequel: " + d.get("prequelID") + endOfLine);
+				prequelId = Integer.parseInt(d.get("prequelID"));
+			}
+
+			stringBuilder.append("Description: " + d.get("description") + endOfLine);
+			stringBuilder.append("Date Published: " + d.get("datePublishedString") + endOfField);
+			stringBuilder.append("Completion Status: " + d.get("completionStatus") + endOfLine);
+			stringBuilder.append("Likes: " + d.get("likes") + endOfField);
+			stringBuilder.append("Dislikes: " + d.get("dislikes") + endOfField);
+			stringBuilder.append("Percent Rating: " + d.get("percentRating") + endOfField);
+			stringBuilder.append("Views: " + d.get("views") + endOfField);
+			stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
+			stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
+			stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
+			stringBuilder.append(endOfLine);
+		}
+
+		stringBuilder.append("Total " + hits.length + " results. ");
+
+		goodPrint(stringBuilder.toString(), 3);
+		if (hits.length == 0) {
+			goodPrint("The story in question has no sequel(s)", 3);
+		}
+		reader1.close();
+	}
+
 	public static void goodPrint(String theString) {
 		textArea.append(theString);
+	}
+
+	// whereToPrint: 1 = prequel, 2 = story in question, 3 = sequels
+	public static void goodPrint(String theString, int whereToPrint) {
+		switch (whereToPrint) {
+		case 1:
+			prequel.append(theString);
+			break;
+		case 2:
+			siq.setText(siq.getText() + theString);
+			break;
+		case 3:
+			sequels.append(theString);
+			break;
+		}
 	}
 
 	public static void loadTagTextAreasIntoTagTestAreasArrayList() {
@@ -603,7 +810,7 @@ public class FimArchiveSearchGUI {
 			out.write("Hide stories with unknown publish dates? y/n");
 			out.newLine();
 
-			if (hideUnknownPublishDateCheckbox.getState()) {
+			if (LimitResultsCheckbox.getState()) {
 				out.write("y");
 				out.newLine();
 			} else {
@@ -643,6 +850,12 @@ public class FimArchiveSearchGUI {
 			out.newLine();
 
 			out.write(descriptionContainsTextBox.getText());
+			out.newLine();
+			
+			out.write("Author name:");
+			out.newLine();
+
+			out.write(authorTextField.getText());
 			out.newLine();
 
 			out.close();
@@ -715,7 +928,7 @@ public class FimArchiveSearchGUI {
 			line = br.readLine();// skip this line
 			line = br.readLine();// skip stories with unkown publish dates?
 			if (line.equals("y")) {
-				hideUnknownPublishDateCheckbox.setState(true);
+				LimitResultsCheckbox.setState(true);
 			}
 
 			line = br.readLine();// skip this line
@@ -737,6 +950,10 @@ public class FimArchiveSearchGUI {
 			line = br.readLine();// skip this line
 			line = br.readLine();// description contains
 			descriptionContainsTextBox.setText(line);
+			
+			line = br.readLine();// skip this line
+			line = br.readLine();// author name
+			authorTextField.setText(line);
 
 			br.close();
 
@@ -748,7 +965,7 @@ public class FimArchiveSearchGUI {
 	public static void readTextBoxesIntoMemory() throws ParseException {
 		goodTags.clear();
 		badTags.clear();
-		
+
 		minLikesInt = -1;
 		minWordsInt = -1;
 		maxWordsInt = -1;
@@ -756,7 +973,6 @@ public class FimArchiveSearchGUI {
 		resultsArray.clear();
 		descriptionContainsString = "";
 		titleContainsString = "";
-		
 
 		// Good tags
 		if (goodTag1.getText().length() > 1) {
@@ -821,7 +1037,7 @@ public class FimArchiveSearchGUI {
 		}
 
 		// hide unknown publish dates
-		if (hideUnknownPublishDateCheckbox.getState()) {
+		if (LimitResultsCheckbox.getState()) {
 			hideStoriesWithUnkownPublishDate = true;
 		} else {
 			hideStoriesWithUnkownPublishDate = false;
@@ -861,7 +1077,8 @@ public class FimArchiveSearchGUI {
 
 	}
 
-	public static void createOptimizedIndex() throws ParseException {
+	public static void createOptimizedIndex()
+			throws ParseException, org.apache.lucene.queryparser.classic.ParseException {
 
 		df.setMaximumFractionDigits(2);
 
@@ -884,13 +1101,41 @@ public class FimArchiveSearchGUI {
 			goodPrint(" --- Creating optimized index --- \n");
 			goodPrint("\n");
 
-			
 			JsonReader reader = new JsonReader(new FileReader("index.json"));
-			
+
 			if (useSampleIndex) {
 				reader = new JsonReader(new FileReader("sampleIndex.json"));
 			}
-			
+
+			// 0. Specify the analyzer for tokenizing text.
+			// The same analyzer should be used for indexing and searching
+			StandardAnalyzer analyzer = new StandardAnalyzer();
+
+			// 1. create the index
+			boolean createNew = true;
+			String SRC_FOLDER = "theLuceneIAAndex";
+
+			if (createNew) {
+				File directory = new File(SRC_FOLDER);
+				if (!directory.exists()) {
+					System.out.println("Directory does not exist.");
+				} else {
+					try {
+						delete(directory);
+					} catch (IOException e) {
+						e.printStackTrace();
+						System.exit(0);
+					}
+				}
+				System.out.println("delete Done");
+			}
+			FSDirectory index = FSDirectory.open(Paths.get(SRC_FOLDER));
+			IndexWriterConfig config = new IndexWriterConfig(analyzer);
+			IndexWriter w = new IndexWriter(index, config);
+
+			// reader can only be closed when there
+			// is no need to access the documents any more.
+
 			while (true) {
 				JsonToken token = reader.peek();
 				switch (token) {
@@ -910,8 +1155,11 @@ public class FimArchiveSearchGUI {
 					indents--;
 					if (indents == 1) {
 						// End of story data
-
-						resultsArray.add(temp);
+						temp.removeHtmlFormattingFromDescription();
+						// resultsArray.add(temp);
+						temp.description = temp.description.substring(0, Math.min(temp.description.length(), 10000));
+						addDoc(w, temp);
+						// goodPrint(temp.tags + "\n");
 
 						if (numberOfStoriesScanned % updateInterval == 0) {
 							goodPrint("Scanned " + numberOfStoriesScanned + " stories\n");
@@ -982,7 +1230,7 @@ public class FimArchiveSearchGUI {
 					reader.nextNull();
 					break;
 				case END_DOCUMENT:
-
+					w.close();
 					goodPrint("--End of scanning--\n");
 
 					goodPrint("--Total stories scanned: " + numberOfStoriesScanned + "--\n");
@@ -994,12 +1242,9 @@ public class FimArchiveSearchGUI {
 						goodPrint("--Sorting by words--\n");
 					}
 
-					goodPrint("Creating optimizedIndex.json (takes about 6 seconds). The program will appear to freeze\n");
+					goodPrint(
+							"Creating optimizedIndex.json (takes about 6 seconds). The program will appear to freeze\n");
 
-					try (Writer writer = new FileWriter("optimizedIndex.json")) {
-						Gson gson = new GsonBuilder().create();
-						gson.toJson(resultsArray, writer);
-					}
 					goodPrint("Done creating optimizedIndex.json\n");
 					goodPrint("Now run the program with \"optimizedIndex.json\" selected");
 
@@ -1020,199 +1265,225 @@ public class FimArchiveSearchGUI {
 
 	}
 
-	public static void updateTextAreaFromOptimizedIndex() throws IOException, ParseException {
-		saveSettings();
-		tooManyResults = false;
-
-		String storyInfo = "";
-		numberOfStoriesScanned = 0;
-		textArea.setText("");
-		startTimeMilliseconds = System.currentTimeMillis();
-
-		ArrayList<String> originalTags = new ArrayList<String>();
-
-		int indents = 0;
-		String name = "filler";
-
+	public static void updateTextAreaFromLuceneIndex()
+			throws IOException, org.apache.lucene.queryparser.classic.ParseException, java.text.ParseException {
 		readTextBoxesIntoMemory();
+		saveSettings();
+		textArea.setText("");
+		// 0. Specify the analyzer for tokenizing text.
+		// The same analyzer should be used for indexing and searching
+		StandardAnalyzer analyzer = new StandardAnalyzer();
 
-		goodPrint(" --- Search Options --- \n");
-		goodPrint(" --- Searching from subset of all stories --- \n");
-		goodPrint("--Searching for stories with tags: " + goodTags + "\n");
-		goodPrint("--and without tags: " + badTags + "\n");
-		goodPrint("--Sorted by " + sortByString + "\n");
-		if (minLikesInt != -1) {
-			goodPrint("--Min likes " + minLikesInt + "\n");
+		// 1. create the index
+		String SRC_FOLDER = "theLuceneIAAndex";
+
+		// Directory index = new RAMDirectory();
+		FSDirectory index = FSDirectory.open(Paths.get(SRC_FOLDER));
+		IndexWriterConfig config = new IndexWriterConfig(analyzer);
+		IndexWriter w = new IndexWriter(index, config);
+
+		// 2. query
+		// the "title" arg specifies the default field to use
+		// when no field is explicitly specified in the query.
+		QueryParser qp = new QueryParser("title", analyzer);
+		// System.out.println("title contains: " + titleContainsTextBox.getText());
+		// Query q = qp.parse("title:\"pony\""); //THIS IS HOW TO DO IT
+		String theString = "";
+		theString += "filler:abcde";
+		if (titleContainsString.length() > 0) {
+			titleContainsString = "\"" + titleContainsString + "\"";
+			// theString += (" AND !title:" + titleContainsString); //how to exclude
+			theString += (" AND title:" + titleContainsString);
 		}
-		if (minWordsInt != -1) {
-			goodPrint("--Min words " + minWordsInt + "\n");
+		if (descriptionContainsString.length() > 0) {
+			descriptionContainsString = "\"" + descriptionContainsString + "\"";
+			// theString += (" AND !title:" + titleContainsString); //how to exclude
+			theString += (" AND description:" + descriptionContainsString);
 		}
-		if (maxWordsInt != -1) {
-			goodPrint("--Max words " + maxWordsInt + "\n");
+		String authorString = authorTextField.getText();
+		if (authorTextField.getText().length() > 0) {
+			authorString = "\"" + authorString + "\"";
+			// theString += (" AND !title:" + titleContainsString); //how to exclude
+			theString += (" AND author:" + authorString);
+			System.out.println(authorTextField.getText());
+			System.out.println(theString);
 		}
-		if (checkEarliestAllowedPublishDate) {
-			goodPrint("--Only stories published after " + earliestAllowedPublishDate.getText() + "\n");
+		for (int i = 0; i < goodTags.size(); i++) {
+			goodTags.set(i, "\"" + goodTags.get(i) + "\"");
+			theString += (" AND tagsString:" + goodTags.get(i));
 		}
-		if (checkLatestAllowedPublishDate) {
-			goodPrint("--Only stories published before " + latestAllowedPublishDate.getText() + "\n");
-		}
-		if (completedStoriesOnly) {
-			goodPrint("--Only completed stories\n");
-		}
-		if (hideStoriesWithUnkownPublishDate) {
-			goodPrint("--Hide stories with unknown publish date\n");
+		for (int i = 0; i < badTags.size(); i++) {
+			badTags.set(i, "\"" + badTags.get(i) + "\"");
+			theString += (" AND !tagsString:" + badTags.get(i));
 		}
 
-		goodPrint("\n");
-		JsonReader reader = new JsonReader(new FileReader("optimizedIndex.json"));
-		while (true) {
-			JsonToken token = reader.peek();
-			switch (token) {
-			case BEGIN_ARRAY:
-				reader.beginArray();
-				indents++;
-				break;
-			case END_ARRAY:
-				indents--;
-				reader.endArray();
-				break;
-			case BEGIN_OBJECT:
-				indents++;
-				reader.beginObject();
-				break;
-			case END_OBJECT:
-				indents--;
-				if (name.equals("completionStatus")) {
-					// if the last scanned property was completionStatus, the story is now fully
-					// scanned and can be checked
+		Query minLikesQuery;
+		Query minAndMaxWordsQuery;
+		Query datePublishedQuery;
+		Query percentRatingQuery;
 
-					// no parameters because it uses the static variable temp
+		if (minLikesInt > -1) {
+			minLikesQuery = IntPoint.newRangeQuery("likes", minLikesInt, Integer.MAX_VALUE);
+		} else {
+			minLikesQuery = IntPoint.newRangeQuery("likes", Integer.MIN_VALUE, Integer.MAX_VALUE);
+		}
 
-					checkIfStoryMeetsRequirements();
+		if (minWordsInt > -1 && maxWordsInt > -1) {
+			minAndMaxWordsQuery = IntPoint.newRangeQuery("words", minWordsInt, maxWordsInt);
+		} else if (minWordsInt > -1) {
+			minAndMaxWordsQuery = IntPoint.newRangeQuery("words", minWordsInt, Integer.MAX_VALUE);
+		} else if (maxWordsInt > -1) {
+			minAndMaxWordsQuery = IntPoint.newRangeQuery("words", Integer.MIN_VALUE, maxWordsInt);
+		} else {
+			minAndMaxWordsQuery = IntPoint.newRangeQuery("words", Integer.MIN_VALUE, Integer.MAX_VALUE);
+		}
+		int earliestAllowedPublishDateInt;
+		String earliestAllowedPublishDateStringWithoutSlashes;
+		int latestAllowedPublishDateInt;
+		String latestAllowedPublishDateStringWithoutSlashes;
 
-					if (stillGood) {
-						// temp.tags = originalTags;
-						resultsArray.add(temp);
+		if (earliestAllowedPublishDate.getText().length() > 0) {
+			earliestAllowedPublishDateStringWithoutSlashes = earliestAllowedPublishDate.getText().replace("/", "");
+			earliestAllowedPublishDateInt = Integer.parseInt(earliestAllowedPublishDateStringWithoutSlashes);
+		} else {
+			earliestAllowedPublishDateInt = 0;
+		}
+
+		if (latestAllowedPublishDate.getText().length() > 0) {
+			latestAllowedPublishDateStringWithoutSlashes = latestAllowedPublishDate.getText().replace("/", "");
+			latestAllowedPublishDateInt = Integer.parseInt(latestAllowedPublishDateStringWithoutSlashes);
+		} else {
+			latestAllowedPublishDateInt = Integer.MAX_VALUE;
+		}
+
+		datePublishedQuery = IntPoint.newRangeQuery("datePublishedInt", earliestAllowedPublishDateInt,
+				latestAllowedPublishDateInt);
+
+		if (minPercentageRatingFloat > 0) {
+			percentRatingQuery = FloatPoint.newRangeQuery("percentRating", minPercentageRatingFloat, Integer.MAX_VALUE);
+		} else {
+			percentRatingQuery = FloatPoint.newRangeQuery("percentRating", -10, 200);
+
+		}
+
+		if (completedOnlyCheckbox.getState()) {
+			theString += (" AND completionStatus:" + "complete");
+		}
+
+		// TO DO
+		// only completed
+
+		Query q = qp.parse(theString);
+
+		BooleanQuery booleanQuery = new BooleanQuery.Builder().add(q, BooleanClause.Occur.MUST)
+				.add(minLikesQuery, BooleanClause.Occur.MUST).add(minAndMaxWordsQuery, BooleanClause.Occur.MUST)
+				.add(datePublishedQuery, BooleanClause.Occur.MUST).build();
+
+		// Query combinedQuery = queryNumeric.Or(q);
+		w.close();
+
+		// 3. search
+		int hitsPerPage = 999999;
+		IndexReader reader1 = DirectoryReader.open(index);
+		IndexSearcher searcher = new IndexSearcher(reader1);
+
+		Sort sort = new Sort(new SortedNumericSortField("views", SortField.Type.LONG, true));
+
+		if (viewsRadioButton.isSelected()) {
+			// no need
+		} else if (likesRadioButton.isSelected()) {
+			sort = new Sort(new SortedNumericSortField("likes", SortField.Type.LONG, true));
+		} else if (wordsRadioButton.isSelected()) {
+			sort = new Sort(new SortedNumericSortField("words", SortField.Type.LONG, true));
+		} else if (percentRatingRadioButton.isSelected()) {
+			sort = new Sort(new SortedNumericSortField("percentRating", SortField.Type.LONG, true));
+		} else if (oldestFirstRadioButton.isSelected()) {
+			sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, true));
+		} else if (newestFirstRadioButton.isSelected()) {
+			sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, false));
+		}
+		TopDocs docs = searcher.search(booleanQuery, hitsPerPage, sort, true, true);
+		// TopDocs docs = searcher.search(booleanQuery, hitsPerPage);
+		ScoreDoc[] hits = docs.scoreDocs;
+
+		// 4. display results
+
+		DecimalFormat df2 = new DecimalFormat("#.##");
+		float estimatedSecondsTheProgramWillFreezeFor = ((float) hits.length / (float) 20000);
+
+		String endOfLine = System.lineSeparator();
+		String endOfField = ", ";
+
+		goodPrint("Found " + hits.length + " results" + endOfLine);
+		goodPrint("Loading results into memory..." + endOfLine);
+		goodPrint("The program will appear to freeze for about " + df2.format(estimatedSecondsTheProgramWillFreezeFor)
+				+ " seconds" + endOfLine);
+
+		// goodPrint("this is the query string: " + theString);
+		goodPrint(endOfLine);
+		goodPrint("Good tags entered: " + goodTags.toString() + endOfLine);
+		goodPrint("Bad tags entered: " + badTags.toString() + endOfLine);
+
+		SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+			StringBuilder stringBuilder = new StringBuilder("");
+
+			@Override
+			protected Void doInBackground() throws Exception {
+				for (int i = 0; i < hits.length; ++i) {
+					int docId = hits[i].doc;
+					Document d = searcher.doc(docId);
+
+					stringBuilder.append("--Story Title: " + d.get("title") + endOfField);
+					stringBuilder.append("Author: " + d.get("author") + endOfField);
+					stringBuilder.append("ID: " + d.get("ID") + endOfLine);
+					if (Integer.parseInt(d.get("prequelID")) != -1) {
+						stringBuilder.append(
+								"!! this story has a prequel. ID of prequel: " + d.get("prequelID") + endOfLine);
 					}
+					stringBuilder.append("Description: " + d.get("description") + endOfLine);
+					stringBuilder.append("Date Published: " + d.get("datePublishedString") + endOfField);
+					stringBuilder.append("Completion Status: " + d.get("completionStatus") + endOfLine);
+					stringBuilder.append("Likes: " + d.get("likes") + endOfField);
+					stringBuilder.append("Dislikes: " + d.get("dislikes") + endOfField);
+					stringBuilder.append("Percent Rating: " + d.get("percentRating") + endOfField);
+					stringBuilder.append("Views: " + d.get("views") + endOfField);
+					stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
+					stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
+					stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
 
-					temp = new FimfictionStory();// reset temp
-					numberOfStoriesScanned++;
-					if (numberOfStoriesScanned % updateInterval == 0) {
-						goodPrint("Scanned " + numberOfStoriesScanned + ", found " + resultsArray.size()
-								+ " results so far\n");
+					stringBuilder.append(endOfLine);
+
+					if (i == maxNumberOfResultsShown && LimitResultsCheckbox.getState()) {
+
+						break;
 
 					}
 				}
-				reader.endObject();
-				break;
-			case NAME:
-				name = reader.nextName();
 
-				break;
-			case STRING:
-				String s = reader.nextString();
-				if (name.equals("tags")) {
-					temp.tags.add(s);
+				if (hits.length > 5000 && LimitResultsCheckbox.getState()) {
+					// estimatedSecondsTheProgramWillFreezeFor = 1.2f;
+				}
+				goodPrint("Done finding results. Now printing. " + "The program will appear to freeze for another "
+						+ df2.format(estimatedSecondsTheProgramWillFreezeFor * 1.5) + " seconds" + endOfLine
+						+ endOfLine);
 
-				} else if (name.equals("title")) {
-					temp.title = s;
-				} else if (name.equals("author")) {
-					temp.author = s;
-				} else if (name.equals("contentRating")) {
-					temp.contentRating = s;
-				} else if (name.equals("datePublishedString")) {
-					temp.datePublishedString = s;
-					if (!s.equals("unknown date")) {
-						temp.datePublishedString = s.substring(0, 10).replace('-', '/');
-						temp.datePublishedObject = formatter.parse(temp.datePublishedString);
-					}
-				} else if (name.equals("description")) {
-					temp.description = s;
-				} else if (name.equals("completionStatus")) {
-					temp.completionStatus = s;
+				stringBuilder.append("Total " + hits.length + " results. ");
+				if (hits.length > maxNumberOfResultsShown && LimitResultsCheckbox.getState()) {
+					stringBuilder.append("However, only showing " + maxNumberOfResultsShown + " results to avoid lag.");
 				}
 
-				break;
-			case NUMBER:
-				double n = reader.nextDouble();
-				if (name.equals("words")) {
-					temp.words = (int) n;
-				} else if (name.equals("likes")) {
-					temp.likes = (int) n;
-				} else if (name.equals("dislikes")) {
-					temp.dislikes = (int) n;
-				} else if (name.equals("ID")) {
-					temp.ID = (int) n;
-				} else if (name.equals("prequelID")) {
-					temp.prequelID = (int) n;
-				} else if (name.equals("views")) {
-					temp.views = (int) n;
-				}
+				goodPrint(stringBuilder.toString());
 
-				break;
-			case BOOLEAN:
-				boolean b = reader.nextBoolean();
-				break;
-			case NULL:
-				reader.nextNull();
-				break;
-			case END_DOCUMENT:
-
-				printResultsToTextArea();
-
-				goodPrint("--End of scanning--\n");
-				goodPrint("--Search completed in " + (float) (System.currentTimeMillis() - startTimeMilliseconds) / 1000
-						+ " seconds--\n");
-
-				if (tooManyResults) {
-					goodPrint("--Too many results, only showing " + maxNumberOfResultsShown + " to avoid lag\n");
-				}
-
-				// numberOfStoriesScanned--;
-
-				goodPrint("--Total stories scanned: " + numberOfStoriesScanned + "--\n");
-				goodPrint("--Results: " + resultsArray.size() + "--\n");
-				if (viewsRadioButton.isSelected()) {
-					goodPrint("--Sorting by views--\n");
-				} else if (likesRadioButton.isSelected()) {
-					goodPrint("--Sorting by likes--\n");
-				} else if (percentRatingRadioButton.isSelected()) {
-					goodPrint("--Sorting by percent rating--\n");
-				} else if (wordsRadioButton.isSelected()) {
-					goodPrint("--Sorting by words--\n");
-				} else if (newestFirstRadioButton.isSelected()) {
-					goodPrint("--Sorting by newest first--\n");
-				} else if (oldestFirstRadioButton.isSelected()) {
-					goodPrint("--Sorting by oldest first--\n");
-				}
-
-				// Save results to results.txt
-				if (writeResultsCheckbox.getState()) {
-					try {
-						String filename = "results.txt";
-						BufferedWriter out = new BufferedWriter(new FileWriter(filename));
-						out.write(" ");
-						out.close();
-
-						PrintWriter out1 = new PrintWriter(new BufferedWriter(new FileWriter(filename, true)));
-						for (String line : textArea.getText().split("\\n")) {
-							out1.println(line);
-						}
-						out1.close();
-					} catch (Exception e) {
-						// oops
-					}
-				}
-
-				resultsArray.clear();
-				numberOfStoriesScanned = 0;
-				reader.close();
-				return;
+				reader1.close();
+				return null;
 			}
-		}
+		};
+
+		worker.execute();
 	}
 
 	public static boolean checkIfStoryMeetsRequirements() {
+		goodPrint("checkIf\n");
 		stillGood = true;
 		// End of story data
 		// Checking is complete
@@ -1268,7 +1539,7 @@ public class FimArchiveSearchGUI {
 				stillGood = false;
 			}
 		}
-		
+
 		if (stillGood && descriptionContainsString.length() > 0) {
 			if (!temp.description.toLowerCase().contains(descriptionContainsString.toLowerCase())) {
 				stillGood = false;
@@ -1303,66 +1574,157 @@ public class FimArchiveSearchGUI {
 				}
 			}
 		}
+
 		return true;
 	}
 
-	public static void printResultsToTextArea() {
-		String storyInfo = "";
-		if (viewsRadioButton.isSelected()) {// Sorting
-			Collections.sort(resultsArray, FimfictionStory.ViewsComparator);
-		} else if (likesRadioButton.isSelected()) {
-			Collections.sort(resultsArray, FimfictionStory.LikesComparator);
-		} else if (percentRatingRadioButton.isSelected()) {
-			Collections.sort(resultsArray, FimfictionStory.PercentRatingComparator);
-		} else if (wordsRadioButton.isSelected()) {
-			Collections.sort(resultsArray, FimfictionStory.WordsComparator);
-		} else if (oldestFirstRadioButton.isSelected()) {
-			// no action required
-		} else if (newestFirstRadioButton.isSelected()) {
-			Collections.reverse(resultsArray);
-		}
-		// output final results to screen
-		storyInfo = "";
-		for (int i = 0; i < resultsArray.size(); i++) {
-			temp.calculateRating();
-			// goodPrint("------" + temp + "------\n");
-			temp = resultsArray.get(i);
-			storyInfo += ("--Story Title: " + temp.title + ", ");
-			storyInfo += ("Author: " + temp.author + ", ");
-			storyInfo += ("ID: " + temp.ID + "\n");
-			temp.removeHtmlFormattingFromDescription();
-			if (temp.prequelID != -1) {
-				storyInfo += ("--Prequel ID: " + temp.prequelID + "\n");
-			}
-			storyInfo += ("--Description: ");
-			
-			storyInfo += (temp.description + "\n");
-			
-			storyInfo += ("--Date Published: " + temp.datePublishedString + ", Completion: "
-					+ temp.completionStatus.substring(0, 1).toUpperCase() + temp.completionStatus.substring(1) + "\n");
-			storyInfo += ("--Likes: " + temp.likes + ", Dislikes: " + temp.dislikes + ", ");
-			storyInfo += ("Percentage Rating: " + df.format(temp.percentRating) + "%, ");
-			storyInfo += ("Views: " + temp.views + ", Word Count: " + temp.words + "\n");
-			storyInfo += ("--Tags: " + temp.tags + "\n");
-			storyInfo += ("--Content rating: " + temp.contentRating.substring(0, 1).toUpperCase()
-					+ temp.contentRating.substring(1) + "\n");
-			storyInfo += ("\n");
-			if (i % resultBufferPrintInterval == 0) {
-				goodPrint(storyInfo);
-				storyInfo = "";
-			}
-			if (i > maxNumberOfResultsShown) {
-				tooManyResults = true;
-				break;
+	public static boolean checkRequirementsSmall(FimfictionStory storyToBeChecked) {
+
+		if (maxWordsInt != -1) {
+			if (storyToBeChecked.words > maxWordsInt) {
+				return false;
 			}
 		}
-		goodPrint(storyInfo);
-		storyInfo = "";
+		if (minWordsInt != -1) {
+			if (storyToBeChecked.words < minWordsInt) {
+				return false;
+			}
+		}
+		if (minLikesInt != -1) {
+			if (storyToBeChecked.likes < minLikesInt) {
+				return false;
+			}
+		}
+		if (minPercentageRatingFloat != -1) {
+			if (storyToBeChecked.percentRating < minPercentageRatingFloat) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	public static void printResultsToTextArea(ScoreDoc[] hits, IndexSearcher searcher) {
+
 	}
 
 	public static void indent(int ind) {
 		for (int i = 0; i < ind; i++) {
 			System.out.print("    ");
 		}
+	}
+
+	public static void delete(File file) throws IOException {
+		if (file.isDirectory()) {
+			if (file.list().length == 0) {
+				file.delete();
+			} else {
+				String files[] = file.list();
+				for (String temp : files) {
+					File fileDelete = new File(file, temp);
+					delete(fileDelete);
+				}
+				if (file.list().length == 0) {
+					file.delete();
+				}
+			}
+		} else {
+			file.delete();
+		}
+	}
+
+	public static void addDoc(IndexWriter w, FimfictionStory theStoryToBeAddedToIndex) throws IOException {
+		Document doc = new Document();
+		doc.add(new org.apache.lucene.document.TextField("filler", "abcde", Field.Store.YES));
+		doc.add(new org.apache.lucene.document.TextField("title", theStoryToBeAddedToIndex.title, Field.Store.YES));
+
+		// use a string field for desc because we don't want it tokenized
+		doc.add(new org.apache.lucene.document.TextField("description", theStoryToBeAddedToIndex.description,
+				Field.Store.YES));
+		String tagsString = theStoryToBeAddedToIndex.tags.toString();
+
+		tagsString = tagsString.replace("[", "");
+		tagsString = tagsString.replace("]", "");
+		tagsString = tagsString.replace(", ", ",");
+		doc.add(new org.apache.lucene.document.TextField("tagsString", tagsString, Field.Store.YES));
+
+		doc.add(new org.apache.lucene.document.IntPoint("likes", theStoryToBeAddedToIndex.likes));
+		doc.add(new StoredField("likes", theStoryToBeAddedToIndex.likes));
+		doc.add(new SortedNumericDocValuesField("likes", theStoryToBeAddedToIndex.likes));
+
+		doc.add(new org.apache.lucene.document.IntPoint("dislikes", theStoryToBeAddedToIndex.dislikes));
+		doc.add(new StoredField("dislikes", theStoryToBeAddedToIndex.dislikes));
+
+		theStoryToBeAddedToIndex.calculateRating();
+
+		doc.add(new org.apache.lucene.document.FloatPoint("percentRating", theStoryToBeAddedToIndex.percentRating));
+		doc.add(new StoredField("percentRating", theStoryToBeAddedToIndex.percentRating));
+		doc.add(new SortedNumericDocValuesField("percentRating",
+				(int) (theStoryToBeAddedToIndex.percentRating * 10000)));
+
+		doc.add(new org.apache.lucene.document.IntPoint("views", theStoryToBeAddedToIndex.views));
+		doc.add(new StoredField("views", theStoryToBeAddedToIndex.views));
+		doc.add(new SortedNumericDocValuesField("views", theStoryToBeAddedToIndex.views));
+
+		doc.add(new org.apache.lucene.document.TextField("author", theStoryToBeAddedToIndex.author, Field.Store.YES));
+
+		doc.add(new org.apache.lucene.document.TextField("datePublishedString",
+				theStoryToBeAddedToIndex.datePublishedString, Field.Store.YES));
+
+		// YYYYMMDD
+		int datePublishedInt = 19000101;
+		if (theStoryToBeAddedToIndex.datePublishedString != "unknown date") {
+			String datePublishedStringWithoutSlashes;
+			datePublishedStringWithoutSlashes = theStoryToBeAddedToIndex.datePublishedString.replace("/", "");
+			datePublishedInt = Integer.parseInt(datePublishedStringWithoutSlashes);
+		}
+
+		doc.add(new org.apache.lucene.document.IntPoint("datePublishedInt", datePublishedInt));
+		doc.add(new StoredField("datePublishedInt", datePublishedInt));
+		doc.add(new SortedNumericDocValuesField("datePublishedInt", theStoryToBeAddedToIndex.datePublishedInt));
+
+		doc.add(new org.apache.lucene.document.TextField("completionStatus", theStoryToBeAddedToIndex.completionStatus,
+				Field.Store.YES));
+
+		doc.add(new org.apache.lucene.document.TextField("contentRating", theStoryToBeAddedToIndex.contentRating,
+				Field.Store.YES));
+
+		doc.add(new org.apache.lucene.document.IntPoint("words", theStoryToBeAddedToIndex.words));
+		doc.add(new StoredField("words", theStoryToBeAddedToIndex.words));
+		doc.add(new SortedNumericDocValuesField("words", theStoryToBeAddedToIndex.words));
+
+		// ID is in caps
+
+		doc.add(new org.apache.lucene.document.IntPoint("ID", theStoryToBeAddedToIndex.ID));
+		doc.add(new StoredField("ID", theStoryToBeAddedToIndex.ID));
+
+		doc.add(new org.apache.lucene.document.IntPoint("prequelID", theStoryToBeAddedToIndex.prequelID));
+		doc.add(new StoredField("prequelID", theStoryToBeAddedToIndex.prequelID));
+
+		w.addDocument(doc);
+	}
+
+	public static boolean isThisStringAnInteger(String str) {
+		if (str == null) {
+			return false;
+		}
+		int length = str.length();
+		if (length == 0) {
+			return false;
+		}
+		int i = 0;
+		if (str.charAt(0) == '-') {
+			if (length == 1) {
+				return false;
+			}
+			i = 1;
+		}
+		for (; i < length; i++) {
+			char c = str.charAt(i);
+			if (c < '0' || c > '9') {
+				return false;
+			}
+		}
+		return true;
 	}
 }
