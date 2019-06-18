@@ -11,7 +11,7 @@ The program was tested on Windows, it might or might not work on other operating
 
 ## To use without compiling (for non-programmers who just want to search stuff)
 
-Download FimarchiveSearchGUI.jar and settings.txt
+Download FimarchiveSearchGUI.jar (either old or 1.0) and settings.txt
 
 Download Fimarchive (the 5.9 GB file)
 
