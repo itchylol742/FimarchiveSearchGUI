@@ -3,6 +3,7 @@
 ![alt text](/FimarchiveGUIdemo.gif)
 
 (The sequel/prequel finder is finished, the GIF is outdated)
+
 A program to search and filter Fimarchive, which is an archive of every story on Fimfiction.net.
 To get Fimarchive - at the time of writing, a 5.9 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official (if you want to try out the program without download a 5.9 GB file, instructions below)
 
