@@ -15,3 +15,7 @@ Finished prequel/sequel finder
 Fixed write to file
 Can search by content rating
 Small improvements
+
+- June 19, 2018 - 1.02
+
+Under the hood programming improvements

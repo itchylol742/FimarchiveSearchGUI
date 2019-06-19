@@ -118,8 +118,6 @@ public class FimArchiveSearchGUI {
 	static int indents = 0;
 	static int numberOfStoriesScanned = 0;
 
-	static boolean tooManyResults = false;
-
 	static FimfictionStory temp = new FimfictionStory();
 
 	static int minLikesInt = -1;
@@ -167,7 +165,7 @@ public class FimArchiveSearchGUI {
 
 	static Checkbox completedOnlyCheckbox = new Checkbox("Completed stories only");
 	static Checkbox writeResultsCheckbox = new Checkbox();
-	static Checkbox useSubsetCheckbox = new Checkbox();
+	static Checkbox doneLuceneSetupCheckbox = new Checkbox();
 	static Checkbox LimitResultsCheckbox = new Checkbox();
 
 	private ButtonGroup searchByRadioButtons = new ButtonGroup();
@@ -316,10 +314,10 @@ public class FimArchiveSearchGUI {
 
 		writeResultsCheckbox.setLabel("Write results to file");
 		writeResultsCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
-		numberFilters.add(useSubsetCheckbox);
+		numberFilters.add(doneLuceneSetupCheckbox);
 
-		useSubsetCheckbox.setLabel("Done Lucene setup");
-		useSubsetCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
+		doneLuceneSetupCheckbox.setLabel("Done Lucene setup");
+		doneLuceneSetupCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
 
 		JTextArea txtrLeave = new JTextArea();
 		numberFilters.add(txtrLeave);
@@ -435,7 +433,7 @@ public class FimArchiveSearchGUI {
 		button.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				try {
-					if (useSubsetCheckbox.getState()) {
+					if (doneLuceneSetupCheckbox.getState()) {
 						// find stuff (after first time run)
 						updateTextAreaFromLuceneIndex();
 					} else {
@@ -535,6 +533,12 @@ public class FimArchiveSearchGUI {
 
 	// my methods below
 
+	/**
+	 * 
+	 * @throws IOException
+	 * @throws org.apache.lucene.queryparser.classic.ParseException
+	 * @throws java.text.ParseException
+	 */
 	public static void updatePrequelAndSequels()
 			throws IOException, org.apache.lucene.queryparser.classic.ParseException, java.text.ParseException {
 		readTextBoxesIntoMemory();
@@ -582,17 +586,13 @@ public class FimArchiveSearchGUI {
 		TopDocs docs = searcher.search(idQuery, hitsPerPage, sort, true, true);
 		ScoreDoc[] hits = docs.scoreDocs;
 
+		//look for the story in question
 		if (hits.length == 0) {
 			goodPrint("There is no story with ID " + theIDToLookFor, 2);
 			return;
 		}
-
-		// 4. display results
-
 		int prequelId = -1;
-
 		StringBuilder stringBuilder = new StringBuilder("");
-
 		for (int i = 0; i < hits.length; ++i) {
 			int docId = hits[i].doc;
 			Document d = searcher.doc(docId);
@@ -617,62 +617,21 @@ public class FimArchiveSearchGUI {
 			for (int i = 0; i < hits.length; ++i) {
 				int docId = hits[i].doc;
 				Document d = searcher.doc(docId);
-				stringBuilder.append("--Story Title: " + d.get("title") + endOfField);
-				stringBuilder.append("Author: " + d.get("author") + endOfField);
-				stringBuilder.append("ID: " + d.get("ID") + endOfLine);
-				if (Integer.parseInt(d.get("prequelID")) != -1) {
-					stringBuilder.append("-This story has a prequel. ID of prequel: " + d.get("prequelID") + endOfLine);
-					prequelId = Integer.parseInt(d.get("prequelID"));
-				}
-
-				stringBuilder.append("Description: " + d.get("description") + endOfLine);
-				stringBuilder.append("Date Published: " + d.get("datePublishedString") + endOfField);
-				stringBuilder.append("Completion Status: " + d.get("completionStatus") + endOfLine);
-				stringBuilder.append("Likes: " + d.get("likes") + endOfField);
-				stringBuilder.append("Dislikes: " + d.get("dislikes") + endOfField);
-				stringBuilder.append("Percent Rating: " + d.get("percentRating") + endOfField);
-				stringBuilder.append("Views: " + d.get("views") + endOfField);
-				stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
-				stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
-				stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
-				stringBuilder.append(endOfLine);
+				addStoryToBufferString(stringBuilder, d);
 			}
-
 			goodPrint(stringBuilder.toString(), 1);
 		}
 
+		//look for sequels if there are any
 		Query sequelQuery = IntPoint.newExactQuery("prequelID", theIDToLookFor);
-
 		docs = searcher.search(sequelQuery, hitsPerPage, sort, true, true);
 		hits = docs.scoreDocs;
-
 		stringBuilder = new StringBuilder("");
-
 		for (int i = 0; i < hits.length; ++i) {
 			int docId = hits[i].doc;
 			Document d = searcher.doc(docId);
-			stringBuilder.append("--Story Title: " + d.get("title") + endOfField);
-			stringBuilder.append("Author: " + d.get("author") + endOfField);
-			stringBuilder.append("ID: " + d.get("ID") + endOfLine);
-			if (Integer.parseInt(d.get("prequelID")) != -1) {
-				stringBuilder.append(
-						"This story has a prequel (obviously). ID of prequel: " + d.get("prequelID") + endOfLine);
-				prequelId = Integer.parseInt(d.get("prequelID"));
-			}
-
-			stringBuilder.append("Description: " + d.get("description") + endOfLine);
-			stringBuilder.append("Date Published: " + d.get("datePublishedString") + endOfField);
-			stringBuilder.append("Completion Status: " + d.get("completionStatus") + endOfLine);
-			stringBuilder.append("Likes: " + d.get("likes") + endOfField);
-			stringBuilder.append("Dislikes: " + d.get("dislikes") + endOfField);
-			stringBuilder.append("Percent Rating: " + d.get("percentRating") + endOfField);
-			stringBuilder.append("Views: " + d.get("views") + endOfField);
-			stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
-			stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
-			stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
-			stringBuilder.append(endOfLine);
+			addStoryToBufferString(stringBuilder, d);
 		}
-
 		stringBuilder.append("Total " + hits.length + " results. ");
 
 		goodPrint(stringBuilder.toString(), 3);
@@ -821,10 +780,10 @@ public class FimArchiveSearchGUI {
 				out.newLine();
 			}
 
-			out.write("Use subset? y/n");
+			out.write("Done Lucene setup? y/n");
 			out.newLine();
 
-			if (useSubsetCheckbox.getState()) {
+			if (doneLuceneSetupCheckbox.getState()) {
 				out.write("y");
 				out.newLine();
 			} else {
@@ -930,9 +889,9 @@ public class FimArchiveSearchGUI {
 			}
 
 			line = br.readLine();// skip this line
-			line = br.readLine();// use subset??
+			line = br.readLine();// done lucene setup?
 			if (line.equals("y")) {
-				useSubsetCheckbox.setState(true);
+				doneLuceneSetupCheckbox.setState(true);
 			}
 
 			line = br.readLine();// skip this line
@@ -1023,9 +982,14 @@ public class FimArchiveSearchGUI {
 		if (descriptionContainsTextBox.getText().length() > 0) {
 			descriptionContainsString = descriptionContainsTextBox.getText();
 		}
-
 	}
 
+	/**
+	 * 
+	 * This function takes index.json and creates the Lucene index
+	 * @throws ParseException
+	 * @throws org.apache.lucene.queryparser.classic.ParseException
+	 */
 	public static void createOptimizedIndex()
 			throws ParseException, org.apache.lucene.queryparser.classic.ParseException {
 
@@ -1039,8 +1003,6 @@ public class FimArchiveSearchGUI {
 		textArea.setText("");
 		goodTags.clear();
 		badTags.clear();
-
-		tooManyResults = false;
 
 		try {
 			String name = "default";
@@ -1126,8 +1088,6 @@ public class FimArchiveSearchGUI {
 						// Start of new story data;
 						numberOfStoriesScanned++;
 					}
-					// indent();
-					// goodPrint(name + " " + indents + "\n");
 
 					if (arrayOfUselessProperties.contains(name)) {
 						// goodPrint("--skipping useless property " + name + "--\n");
@@ -1153,7 +1113,6 @@ public class FimArchiveSearchGUI {
 						temp.contentRating = s;
 						temp.tags.add(s);
 					}
-
 					break;
 				case NUMBER:
 					int n = reader.nextInt();
@@ -1213,6 +1172,12 @@ public class FimArchiveSearchGUI {
 
 	}
 
+	/**
+	 * This functions searches for stuff. It is the most important function.
+	 * @throws IOException
+	 * @throws org.apache.lucene.queryparser.classic.ParseException
+	 * @throws java.text.ParseException
+	 */
 	public static void updateTextAreaFromLuceneIndex()
 			throws IOException, org.apache.lucene.queryparser.classic.ParseException, java.text.ParseException {
 		readTextBoxesIntoMemory();
@@ -1236,6 +1201,8 @@ public class FimArchiveSearchGUI {
 		QueryParser qp = new QueryParser("title", analyzer);
 		// System.out.println("title contains: " + titleContainsTextBox.getText());
 		// Query q = qp.parse("title:\"pony\""); //THIS IS HOW TO DO IT
+		
+		//word queries
 		String theString = "";
 		theString += "filler:abcde";
 		if (titleContainsString.length() > 0) {
@@ -1264,7 +1231,8 @@ public class FimArchiveSearchGUI {
 			badTags.set(i, "\"" + badTags.get(i) + "\"");
 			theString += (" AND !tagsString:" + badTags.get(i));
 		}
-
+		
+		//numeric queries
 		Query minLikesQuery;
 		Query minAndMaxWordsQuery;
 		Query datePublishedQuery;
@@ -1322,10 +1290,14 @@ public class FimArchiveSearchGUI {
 		Query q = qp.parse(theString);
 
 		//numeric queries
-		BooleanQuery booleanQuery = new BooleanQuery.Builder().add(q, BooleanClause.Occur.MUST)
-				.add(minLikesQuery, BooleanClause.Occur.MUST).add(minAndMaxWordsQuery, BooleanClause.Occur.MUST)
-				.add(datePublishedQuery, BooleanClause.Occur.MUST).add(percentRatingQuery, BooleanClause.Occur.MUST)
-				.build();
+		BooleanQuery.Builder booleanQueryBuilder = new BooleanQuery.Builder();
+		
+		booleanQueryBuilder.add(q, BooleanClause.Occur.MUST);
+		booleanQueryBuilder.add(minLikesQuery, BooleanClause.Occur.MUST);
+		booleanQueryBuilder.add(minAndMaxWordsQuery, BooleanClause.Occur.MUST);
+		booleanQueryBuilder.add(datePublishedQuery, BooleanClause.Occur.MUST);
+		booleanQueryBuilder.add(percentRatingQuery, BooleanClause.Occur.MUST);
+		BooleanQuery theActualBooleanQuery = booleanQueryBuilder.build();
 
 		indexWriter.close();
 
@@ -1349,8 +1321,7 @@ public class FimArchiveSearchGUI {
 		} else if (newestFirstRadioButton.isSelected()) {
 			sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, false));
 		}
-		TopDocs docs = searcher.search(booleanQuery, hitsPerPage, sort, true, true);
-		// TopDocs docs = searcher.search(booleanQuery, hitsPerPage);
+		TopDocs docs = searcher.search(theActualBooleanQuery, hitsPerPage, sort, true, true);
 		ScoreDoc[] hits = docs.scoreDocs;
 
 		// 4. display results
@@ -1359,14 +1330,11 @@ public class FimArchiveSearchGUI {
 		float estimatedSecondsTheProgramWillFreezeFor = ((float) hits.length / (float) 20000);
 
 		String endOfLine = System.lineSeparator();
-		String endOfField = ", ";
 
 		goodPrint("Found " + hits.length + " results" + endOfLine);
 		goodPrint("Loading results into memory" + endOfLine);
 		goodPrint("The program will appear to freeze for about " + df2.format(estimatedSecondsTheProgramWillFreezeFor)
 				+ " seconds" + endOfLine);
-
-		// goodPrint("this is the query string: " + theString);
 		goodPrint(endOfLine);
 		goodPrint("Search parameters:" + endOfLine);
 		goodPrint("Good tags entered: " + goodTags.toString() + endOfLine);
@@ -1387,35 +1355,15 @@ public class FimArchiveSearchGUI {
 			@Override
 			protected Void doInBackground() throws Exception {
 				for (int i = 0; i < hits.length; ++i) {
+					
 					int docId = hits[i].doc;
 					Document d = searcher.doc(docId);
-
-					stringBuilder.append("--Story Title: " + d.get("title") + endOfField);
-					stringBuilder.append("Author: " + d.get("author") + endOfField);
-					stringBuilder.append("ID: " + d.get("ID") + endOfLine);
-					if (Integer.parseInt(d.get("prequelID")) != -1) {
-						stringBuilder.append(
-								"!! this story has a prequel. ID of prequel: " + d.get("prequelID") + endOfLine);
-					}
-					stringBuilder.append("Description: " + d.get("description") + endOfLine);
-					stringBuilder.append("Date Published: " + d.get("datePublishedString") + endOfField);
-					stringBuilder.append("Completion Status: " + d.get("completionStatus") + endOfLine);
-					stringBuilder.append("Likes: " + d.get("likes") + endOfField);
-					stringBuilder.append("Dislikes: " + d.get("dislikes") + endOfField);
-					stringBuilder.append("Percent Rating: " + d.get("percentRating") + endOfField);
-					stringBuilder.append("Views: " + d.get("views") + endOfField);
-					stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
-					stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
-					stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
-					stringBuilder.append(endOfLine);
+					addStoryToBufferString(stringBuilder, d);
 					if (i == maxNumberOfResultsShown && LimitResultsCheckbox.getState()) {
 						break;
 					}
 				}
 
-				if (hits.length > 5000 && LimitResultsCheckbox.getState()) {
-					// estimatedSecondsTheProgramWillFreezeFor = 1.2f;
-				}
 				goodPrint(endOfLine + "Done finding results. Now printing. " + "The program will appear to freeze for another "
 						+ df2.format(estimatedSecondsTheProgramWillFreezeFor * 0.8) + " seconds" + endOfLine
 						+ endOfLine);
@@ -1426,16 +1374,13 @@ public class FimArchiveSearchGUI {
 				}
 
 				goodPrint(stringBuilder.toString());
-
 				reader1.close();
 
 				if (writeResultsCheckbox.getState()) {
-
 					BufferedWriter out = new BufferedWriter(new FileWriter("results.txt"));
 					out.write(textArea.getText());
 					out.close();
 				}
-
 				return null;
 			}
 		};
