@@ -12,17 +12,17 @@ BAD
 Sort by:
 views
 Min likes, min words, max words, min % rating - blank for no filter
-300
+126
 
 
-
+87
 Completed stories only? y/n
-y
+n
 earliest allowed publish date in the format YYYY/MM/DD - blank for no filter
 
 latest allowed publish date in the format YYYY/MM/DD - blank for no filter
 
-Hide stories with unknown publish dates? y/n
+Limit to 5000 results? y/n
 y
 Save results to results.txt? y/n
 n

@@ -16,6 +16,7 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
 import javax.lang.model.element.VariableElement;
+import javax.print.Doc;
 import javax.swing.ButtonGroup;
 import java.awt.Button;
 import java.awt.event.ActionListener;
@@ -45,6 +46,7 @@ import javax.swing.SwingWorker;
 
 import org.apache.lucene.document.DateTools;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.DocumentStoredFieldVisitor;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FloatPoint;
 import org.apache.lucene.document.IntPoint;
@@ -84,6 +86,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.NumericUtils;
 
 import javax.swing.BoxLayout;
 import java.awt.Component;
@@ -95,9 +98,11 @@ import javax.swing.SwingConstants;
 public class FimArchiveSearchGUI {
 
 	static boolean useSampleIndex = false;
-	String eol;
+	static String endOfLine = System.lineSeparator();
 
 	// Logic
+
+	static String endOfField = ", ";
 
 	static ArrayList<FimfictionStory> inputStoriesFromSerializableArray = new ArrayList<FimfictionStory>();
 	static ArrayList<FimfictionStory> resultsArray = new ArrayList<FimfictionStory>();
@@ -113,7 +118,6 @@ public class FimArchiveSearchGUI {
 	static int indents = 0;
 	static int numberOfStoriesScanned = 0;
 
-	static boolean stillGood = true;
 	static boolean tooManyResults = false;
 
 	static FimfictionStory temp = new FimfictionStory();
@@ -126,18 +130,7 @@ public class FimArchiveSearchGUI {
 	static SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd");
 	static final int maxNumberOfResultsShown = 5000;
 	static final int updateInterval = 2500;
-	static final int resultBufferPrintInterval = 1000000;
 	static final int descriptionMaxLineLength = 120;// unused, try to get it working without ruining the description
-
-	static String sortByString = "default";
-
-	static Date latestAllowedPublishDateObject;
-	static Date earliestAllowedPublishDateObject;
-
-	static boolean checkEarliestAllowedPublishDate = false;
-	static boolean checkLatestAllowedPublishDate = false;
-	static boolean hideStoriesWithUnkownPublishDate = false;
-	static boolean completedStoriesOnly = false;
 
 	static long startTimeMilliseconds = 0;
 	static DecimalFormat df = new DecimalFormat();
@@ -159,6 +152,7 @@ public class FimArchiveSearchGUI {
 	static TextField badTag5 = new TextField();
 	static TextField titleContainsTextBox = new TextField();
 	static TextField descriptionContainsTextBox = new TextField();
+	static TextField authorTextField = new TextField();
 
 	static ArrayList<TextField> textAreasArrayList = new ArrayList<TextField>();
 
@@ -210,7 +204,6 @@ public class FimArchiveSearchGUI {
 	private final static TextArea prequel = new TextArea();
 	private final static JTextField siq = new JTextField();
 	private final static Label label_14 = new Label("Author Name");
-	private final static TextField authorTextField = new TextField();
 
 	/**
 	 * Launch the application.
@@ -240,7 +233,6 @@ public class FimArchiveSearchGUI {
 	 * Initialize the contents of the frame.
 	 */
 	private void initialize() {
-		eol = System.lineSeparator();
 		siq.setFont(new Font("Arial", Font.PLAIN, 20));
 		siq.setColumns(10);
 		// Logic
@@ -254,7 +246,7 @@ public class FimArchiveSearchGUI {
 		// GUI
 
 		frmTest = new JFrame();
-		frmTest.setTitle("Fimarchive Searcher 1.0 by itchylol742");
+		frmTest.setTitle("Fimarchive Searcher 1.01 by itchylol742");
 		frmTest.setBounds(150, 25, 1394, 953);
 		frmTest.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frmTest.getContentPane().setLayout(new BorderLayout(0, 0));
@@ -267,7 +259,7 @@ public class FimArchiveSearchGUI {
 		tabbedPane.setEnabledAt(0, true);
 		panel.setBackground(SystemColor.menu);
 		panel.setLayout(new MigLayout("", "[80%,fill][20%,fill]", "[34%,fill][1%,fill][65%,fill]"));
-
+		// miglayout1
 		textArea = new TextArea();
 		textArea.setFont(new Font("Arial", Font.PLAIN, 20));
 		panel.add(textArea, "cell 0 2,grow");
@@ -517,22 +509,27 @@ public class FimArchiveSearchGUI {
 		loadTagTextAreasIntoTagTestAreasArrayList();
 
 		loadSettings();
-		goodPrint("IMPORTANT! If this is your first time running the program, have Done Lucene setup UNCHECKED" + eol);
-		goodPrint("This will created the Lucene index from information found in index.json" + eol);
-		goodPrint("After that, run the program with Done Lucene setup checked" + eol);
-		goodPrint(eol);
+		goodPrint("IMPORTANT! If this is your first time running the program, have Done Lucene setup UNCHECKED"
+				+ endOfLine);
+		goodPrint("This will created the Lucene index from information found in index.json" + endOfLine);
+		goodPrint("After that, run the program with Done Lucene setup checked" + endOfLine);
+		goodPrint(endOfLine);
 
-		goodPrint("- Nothing is case sensitive. Type in proper caps, no caps, or all caps if you want" + eol);
+		goodPrint("- Nothing is case sensitive. Type in proper caps, no caps, or all caps if you want" + endOfLine);
 		goodPrint(
 				"- Some stories have -1 likes due to metadata error, so even setting min likes to 0 will filter them out"
-						+ eol);
-		goodPrint("- Some stories have 0 (or very low number) words due to metadata error...?," + eol);
-		goodPrint("    - Or maybe somehow those short stories got on the site" + eol);
-		goodPrint("- Percentage rating assumes there's 1 more like and 1 more dislike than there actually is" + eol);
-		goodPrint("    - So stories with few ratings don't get perfect score" + eol);
-		goodPrint("- Dates are in the format YYYY/MM/DD" + eol);
-		goodPrint("    - 0's before the month and day are REQUIRED if it's less than 10" + eol);
-		goodPrint("    - For exmaple, 2015/02/03 is valid, but 2015/2/3 is invalid" + eol);
+						+ endOfLine);
+		goodPrint("- Some stories have 0 (or very low number) words due to metadata error...?," + endOfLine);
+		goodPrint("    - Or maybe somehow those short stories got on the site" + endOfLine);
+		goodPrint("- Percentage rating assumes there's 1 more like and 1 more dislike than there actually is"
+				+ endOfLine);
+		goodPrint("    - So stories with few ratings don't get perfect score" + endOfLine);
+		goodPrint("- Dates are in the format YYYY/MM/DD" + endOfLine);
+		goodPrint("    - 0's before the month and day are REQUIRED if it's less than 10" + endOfLine);
+		goodPrint("    - For exmaple, 2015/02/03 is valid, but 2015/2/3 is invalid" + endOfLine);
+		goodPrint("- Some stories have unknown publish dates. They are classified" + endOfLine);
+		goodPrint("  as published in the year 1900" + endOfLine);
+		goodPrint("- Content ratings are classified as tags, and are filtered in the same way" + endOfLine);
 
 	}
 
@@ -592,9 +589,6 @@ public class FimArchiveSearchGUI {
 
 		// 4. display results
 
-		String endOfLine = System.lineSeparator();
-		String endOfField = ", ";
-
 		int prequelId = -1;
 
 		StringBuilder stringBuilder = new StringBuilder("");
@@ -613,13 +607,11 @@ public class FimArchiveSearchGUI {
 
 		goodPrint(stringBuilder.toString(), 2);
 
+		// look for the prequel if there is one
 		if (prequelId > 0) {
 			Query prequelQuery = IntPoint.newExactQuery("ID", prequelId);
-
 			docs = searcher.search(prequelQuery, hitsPerPage, sort, true, true);
-			// TopDocs docs = searcher.search(booleanQuery, hitsPerPage);
 			hits = docs.scoreDocs;
-
 			stringBuilder = new StringBuilder("");
 
 			for (int i = 0; i < hits.length; ++i) {
@@ -807,7 +799,7 @@ public class FimArchiveSearchGUI {
 			out.write(latestAllowedPublishDate.getText());
 			out.newLine();
 
-			out.write("Hide stories with unknown publish dates? y/n");
+			out.write("Limit to 5000 results? y/n");
 			out.newLine();
 
 			if (LimitResultsCheckbox.getState()) {
@@ -851,7 +843,7 @@ public class FimArchiveSearchGUI {
 
 			out.write(descriptionContainsTextBox.getText());
 			out.newLine();
-			
+
 			out.write("Author name:");
 			out.newLine();
 
@@ -950,7 +942,7 @@ public class FimArchiveSearchGUI {
 			line = br.readLine();// skip this line
 			line = br.readLine();// description contains
 			descriptionContainsTextBox.setText(line);
-			
+
 			line = br.readLine();// skip this line
 			line = br.readLine();// author name
 			authorTextField.setText(line);
@@ -1022,49 +1014,6 @@ public class FimArchiveSearchGUI {
 			minPercentageRatingFloat = Float.parseFloat(minPercentRatingTextBox.getText());
 		}
 
-		// Publish date limits
-
-		checkEarliestAllowedPublishDate = false;
-		checkLatestAllowedPublishDate = false;
-
-		if (earliestAllowedPublishDate.getText().length() > 0) {
-			earliestAllowedPublishDateObject = formatter.parse(earliestAllowedPublishDate.getText());
-			checkEarliestAllowedPublishDate = true;
-		}
-		if (latestAllowedPublishDate.getText().length() > 0) {
-			latestAllowedPublishDateObject = formatter.parse(latestAllowedPublishDate.getText());
-			checkLatestAllowedPublishDate = true;
-		}
-
-		// hide unknown publish dates
-		if (LimitResultsCheckbox.getState()) {
-			hideStoriesWithUnkownPublishDate = true;
-		} else {
-			hideStoriesWithUnkownPublishDate = false;
-		}
-
-		// completed stories only
-		if (completedOnlyCheckbox.getState()) {
-			completedStoriesOnly = true;
-		} else {
-			completedStoriesOnly = false;
-		}
-
-		// sort by
-		if (viewsRadioButton.isSelected()) {// sorting
-			sortByString = "views";
-		} else if (likesRadioButton.isSelected()) {
-			sortByString = "likes";
-		} else if (percentRatingRadioButton.isSelected()) {
-			sortByString = "percent";
-		} else if (wordsRadioButton.isSelected()) {
-			sortByString = "words";
-		} else if (oldestFirstRadioButton.isSelected()) {
-			sortByString = "oldest";
-		} else if (newestFirstRadioButton.isSelected()) {
-			sortByString = "newest";
-		}
-
 		// title contains
 		if (titleContainsTextBox.getText().length() > 0) {
 			titleContainsString = titleContainsTextBox.getText();
@@ -1098,8 +1047,9 @@ public class FimArchiveSearchGUI {
 
 			readTextBoxesIntoMemory();
 
-			goodPrint(" --- Creating optimized index --- \n");
-			goodPrint("\n");
+			goodPrint(" --- Creating Lucene index --- " + endOfLine);
+			goodPrint(" It should take about 45 seconds" + endOfLine);
+			goodPrint(endOfLine);
 
 			JsonReader reader = new JsonReader(new FileReader("index.json"));
 
@@ -1156,10 +1106,10 @@ public class FimArchiveSearchGUI {
 					if (indents == 1) {
 						// End of story data
 						temp.removeHtmlFormattingFromDescription();
-						// resultsArray.add(temp);
 						temp.description = temp.description.substring(0, Math.min(temp.description.length(), 10000));
+
+						// this function is really important
 						addDoc(w, temp);
-						// goodPrint(temp.tags + "\n");
 
 						if (numberOfStoriesScanned % updateInterval == 0) {
 							goodPrint("Scanned " + numberOfStoriesScanned + " stories\n");
@@ -1167,21 +1117,19 @@ public class FimArchiveSearchGUI {
 						}
 
 						temp = new FimfictionStory();// reset temp variables
-						stillGood = true;
 					}
 					reader.endObject();
 					break;
 				case NAME:
 					name = reader.nextName();
 					if (indents == 1) {
-						// goodPrint("--Start of new story data--\n");
+						// Start of new story data;
 						numberOfStoriesScanned++;
 					}
 					// indent();
 					// goodPrint(name + " " + indents + "\n");
 
 					if (arrayOfUselessProperties.contains(name)) {
-						// indent();
 						// goodPrint("--skipping useless property " + name + "--\n");
 						reader.skipValue();
 					}
@@ -1203,6 +1151,7 @@ public class FimArchiveSearchGUI {
 						temp.description = s;
 					} else if (name.equals("content_rating")) {
 						temp.contentRating = s;
+						temp.tags.add(s);
 					}
 
 					break;
@@ -1233,20 +1182,19 @@ public class FimArchiveSearchGUI {
 					w.close();
 					goodPrint("--End of scanning--\n");
 
-					goodPrint("--Total stories scanned: " + numberOfStoriesScanned + "--\n");
+					goodPrint("--Total stories scanned: " + numberOfStoriesScanned + "--" + endOfLine);
 					if (viewsRadioButton.isSelected()) {
-						goodPrint("--Sorting by views--\n");
+						goodPrint("--Sorting by views--" + endOfLine);
 					} else if (likesRadioButton.isSelected()) {
-						goodPrint("--Sorting by likes--\n");
+						goodPrint("--Sorting by likes--" + endOfLine);
 					} else if (wordsRadioButton.isSelected()) {
-						goodPrint("--Sorting by words--\n");
+						goodPrint("--Sorting by words--" + endOfLine);
 					}
+					goodPrint("Creating Lucene Index (takes about 6 seconds). The program will appear to freeze"
+							+ endOfLine);
 
-					goodPrint(
-							"Creating optimizedIndex.json (takes about 6 seconds). The program will appear to freeze\n");
-
-					goodPrint("Done creating optimizedIndex.json\n");
-					goodPrint("Now run the program with \"optimizedIndex.json\" selected");
+					goodPrint("Done creating Lucene Index" + endOfLine);
+					goodPrint("Now run the program with Done Lucene setup selected");
 
 					resultsArray.clear();
 					numberOfStoriesScanned = 0;
@@ -1280,7 +1228,7 @@ public class FimArchiveSearchGUI {
 		// Directory index = new RAMDirectory();
 		FSDirectory index = FSDirectory.open(Paths.get(SRC_FOLDER));
 		IndexWriterConfig config = new IndexWriterConfig(analyzer);
-		IndexWriter w = new IndexWriter(index, config);
+		IndexWriter indexWriter = new IndexWriter(index, config);
 
 		// 2. query
 		// the "title" arg specifies the default field to use
@@ -1370,17 +1318,16 @@ public class FimArchiveSearchGUI {
 			theString += (" AND completionStatus:" + "complete");
 		}
 
-		// TO DO
-		// only completed
-
+		//word queries
 		Query q = qp.parse(theString);
 
+		//numeric queries
 		BooleanQuery booleanQuery = new BooleanQuery.Builder().add(q, BooleanClause.Occur.MUST)
 				.add(minLikesQuery, BooleanClause.Occur.MUST).add(minAndMaxWordsQuery, BooleanClause.Occur.MUST)
-				.add(datePublishedQuery, BooleanClause.Occur.MUST).build();
+				.add(datePublishedQuery, BooleanClause.Occur.MUST).add(percentRatingQuery, BooleanClause.Occur.MUST)
+				.build();
 
-		// Query combinedQuery = queryNumeric.Or(q);
-		w.close();
+		indexWriter.close();
 
 		// 3. search
 		int hitsPerPage = 999999;
@@ -1415,14 +1362,24 @@ public class FimArchiveSearchGUI {
 		String endOfField = ", ";
 
 		goodPrint("Found " + hits.length + " results" + endOfLine);
-		goodPrint("Loading results into memory..." + endOfLine);
+		goodPrint("Loading results into memory" + endOfLine);
 		goodPrint("The program will appear to freeze for about " + df2.format(estimatedSecondsTheProgramWillFreezeFor)
 				+ " seconds" + endOfLine);
 
 		// goodPrint("this is the query string: " + theString);
 		goodPrint(endOfLine);
+		goodPrint("Search parameters:" + endOfLine);
 		goodPrint("Good tags entered: " + goodTags.toString() + endOfLine);
 		goodPrint("Bad tags entered: " + badTags.toString() + endOfLine);
+		goodPrint("Min words (-1 means no limit): " + minWordsInt + endOfLine);
+		goodPrint("Max words (-1 means no limit): " + maxWordsInt + endOfLine);
+		goodPrint("Published before/on: " + latestAllowedPublishDate.getText() + endOfLine);
+		goodPrint("Published after/on: " + earliestAllowedPublishDate.getText() + endOfLine);
+		goodPrint("Minimum likes (-1 means no limit): " + minLikesInt + endOfLine);
+		goodPrint("Minimum percentage rating (-1 means no limit): " + minPercentageRatingFloat + "%" + endOfLine);
+		goodPrint("Title contains: " + titleContainsTextBox.getText() + endOfLine);
+		goodPrint("Description contains: " + descriptionContainsTextBox.getText() + endOfLine);
+		goodPrint("Author name: " + authorTextField.getText() + endOfLine);
 
 		SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
 			StringBuilder stringBuilder = new StringBuilder("");
@@ -1450,21 +1407,17 @@ public class FimArchiveSearchGUI {
 					stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
 					stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
 					stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
-
 					stringBuilder.append(endOfLine);
-
 					if (i == maxNumberOfResultsShown && LimitResultsCheckbox.getState()) {
-
 						break;
-
 					}
 				}
 
 				if (hits.length > 5000 && LimitResultsCheckbox.getState()) {
 					// estimatedSecondsTheProgramWillFreezeFor = 1.2f;
 				}
-				goodPrint("Done finding results. Now printing. " + "The program will appear to freeze for another "
-						+ df2.format(estimatedSecondsTheProgramWillFreezeFor * 1.5) + " seconds" + endOfLine
+				goodPrint(endOfLine + "Done finding results. Now printing. " + "The program will appear to freeze for another "
+						+ df2.format(estimatedSecondsTheProgramWillFreezeFor * 0.8) + " seconds" + endOfLine
 						+ endOfLine);
 
 				stringBuilder.append("Total " + hits.length + " results. ");
@@ -1475,145 +1428,44 @@ public class FimArchiveSearchGUI {
 				goodPrint(stringBuilder.toString());
 
 				reader1.close();
+
+				if (writeResultsCheckbox.getState()) {
+
+					BufferedWriter out = new BufferedWriter(new FileWriter("results.txt"));
+					out.write(textArea.getText());
+					out.close();
+				}
+
 				return null;
 			}
 		};
-
 		worker.execute();
-	}
-
-	public static boolean checkIfStoryMeetsRequirements() {
-		goodPrint("checkIf\n");
-		stillGood = true;
-		// End of story data
-		// Checking is complete
-		temp.calculateRating();
-		if (completedStoriesOnly) {// is complete?
-			if (!temp.completionStatus.equals("complete")) {
-				stillGood = false;
-			}
-		}
-		// check min likes
-		if (minLikesInt != -1 && stillGood) {
-			if (temp.likes < minLikesInt) {
-				stillGood = false;
-			}
-		}
-		// // check min words
-		if (minWordsInt != -1 && stillGood) {
-			if (temp.words < minWordsInt) {
-				stillGood = false;
-			}
-		}
-		// check max words
-		if (maxWordsInt != -1 && stillGood) {
-			if (temp.words > maxWordsInt) {
-				stillGood = false;
-			}
-		}
-		// // check percentage rating
-		if (minPercentageRatingFloat != -1 && stillGood) {
-			if (temp.percentRating < minPercentageRatingFloat) {
-				stillGood = false;
-			}
-		}
-
-		if (checkLatestAllowedPublishDate && stillGood && temp.datePublishedObject != null) {
-			if (temp.datePublishedObject.after(latestAllowedPublishDateObject)) {
-				stillGood = false;
-			}
-		}
-
-		if (checkEarliestAllowedPublishDate && stillGood && temp.datePublishedObject != null) {
-			if (temp.datePublishedObject.before(earliestAllowedPublishDateObject)) {
-				stillGood = false;
-			}
-		}
-
-		if (stillGood && hideStoriesWithUnkownPublishDate && temp.datePublishedString.equals("unknown date")) {
-			stillGood = false;
-		}
-
-		if (stillGood && titleContainsString.length() > 0) {
-			if (!temp.title.toLowerCase().contains(titleContainsString.toLowerCase())) {
-				stillGood = false;
-			}
-		}
-
-		if (stillGood && descriptionContainsString.length() > 0) {
-			if (!temp.description.toLowerCase().contains(descriptionContainsString.toLowerCase())) {
-				stillGood = false;
-			}
-		}
-
-		// Checking good tags
-		ArrayList<String> lowerCaseTags = new ArrayList<String>(temp.tags);
-
-		if (stillGood) {
-			for (int i = 0; i < lowerCaseTags.size(); i++) {
-				// change the tags to lowercase for non-case sensitive tag matching
-				lowerCaseTags.set(i, temp.tags.get(i).toLowerCase());
-			}
-			for (int i = 0; i < goodTags.size(); i++) {
-				if (lowerCaseTags.contains(goodTags.get(i).toLowerCase())) {
-					// still good
-				} else {
-					stillGood = false;
-					break;
-				}
-			}
-		}
-		// Checking bad tags
-		if (stillGood) {
-			for (int i = 0; i < badTags.size(); i++) {
-				if (lowerCaseTags.contains(badTags.get(i).toLowerCase())) {
-					stillGood = false;
-					break;
-				} else {
-					// still good
-				}
-			}
-		}
-
-		return true;
-	}
-
-	public static boolean checkRequirementsSmall(FimfictionStory storyToBeChecked) {
-
-		if (maxWordsInt != -1) {
-			if (storyToBeChecked.words > maxWordsInt) {
-				return false;
-			}
-		}
-		if (minWordsInt != -1) {
-			if (storyToBeChecked.words < minWordsInt) {
-				return false;
-			}
-		}
-		if (minLikesInt != -1) {
-			if (storyToBeChecked.likes < minLikesInt) {
-				return false;
-			}
-		}
-		if (minPercentageRatingFloat != -1) {
-			if (storyToBeChecked.percentRating < minPercentageRatingFloat) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	public static void printResultsToTextArea(ScoreDoc[] hits, IndexSearcher searcher) {
 
 	}
 
-	public static void indent(int ind) {
-		for (int i = 0; i < ind; i++) {
-			System.out.print("    ");
+	public static void addStoryToBufferString(StringBuilder stringBuilder, Document d) {
+		stringBuilder.append("--Story Title: " + d.get("title") + endOfField);
+		stringBuilder.append("Author: " + d.get("author") + endOfField);
+		stringBuilder.append("ID: " + d.get("ID") + endOfLine);
+		if (Integer.parseInt(d.get("prequelID")) != -1) {
+			stringBuilder.append("!! this story has a prequel. ID of prequel: " + d.get("prequelID") + endOfLine);
 		}
+		stringBuilder.append("Description: " + d.get("description") + endOfLine);
+		stringBuilder.append("Date Published: " + d.get("datePublishedString") + endOfField);
+		stringBuilder.append("Completion Status: " + d.get("completionStatus") + endOfLine);
+		stringBuilder.append("Likes: " + d.get("likes") + endOfField);
+		stringBuilder.append("Dislikes: " + d.get("dislikes") + endOfField);
+		stringBuilder.append("Percent Rating: " + d.get("percentRating") + endOfField);
+		stringBuilder.append("Views: " + d.get("views") + endOfField);
+		stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
+		stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
+		stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
+		stringBuilder.append(endOfLine);
 	}
 
+	// when creating a new Lucene index, if there is an existing Lucene index,
+	// delete
+	// the existing index
 	public static void delete(File file) throws IOException {
 		if (file.isDirectory()) {
 			if (file.list().length == 0) {
@@ -1633,6 +1485,7 @@ public class FimArchiveSearchGUI {
 		}
 	}
 
+	// used when creating the Lucene index
 	public static void addDoc(IndexWriter w, FimfictionStory theStoryToBeAddedToIndex) throws IOException {
 		Document doc = new Document();
 		doc.add(new org.apache.lucene.document.TextField("filler", "abcde", Field.Store.YES));
@@ -1660,7 +1513,7 @@ public class FimArchiveSearchGUI {
 		doc.add(new org.apache.lucene.document.FloatPoint("percentRating", theStoryToBeAddedToIndex.percentRating));
 		doc.add(new StoredField("percentRating", theStoryToBeAddedToIndex.percentRating));
 		doc.add(new SortedNumericDocValuesField("percentRating",
-				(int) (theStoryToBeAddedToIndex.percentRating * 10000)));
+				NumericUtils.floatToSortableInt(theStoryToBeAddedToIndex.percentRating)));
 
 		doc.add(new org.apache.lucene.document.IntPoint("views", theStoryToBeAddedToIndex.views));
 		doc.add(new StoredField("views", theStoryToBeAddedToIndex.views));
