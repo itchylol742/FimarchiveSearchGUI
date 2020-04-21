@@ -33,6 +33,7 @@ public class FimfictionStory {
 	public String title = "unknown title";
 	public String author = "unknown author";
 	public String description = "unknown description";
+	public String path = "unknown path";
 
 	public String datePublishedString = "unknown date";
 	public int datePublishedInt = -1;

@@ -1,6 +1,9 @@
-//Warning: contains lots of spaghetti code
-//    LOTS
-//Last edited June 18, 2019 by itchylol742
+
+//Last edited April 21, 2020 by itchylol742
+
+//to do
+//get the "path". First add from index to lucene index, then add
+//convert id to path, then open path.
 
 package package1;
 
@@ -10,13 +13,9 @@ import java.awt.TextArea;
 import java.awt.Font;
 import javax.swing.JRadioButton;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
-import javax.lang.model.element.VariableElement;
-import javax.print.Doc;
 import javax.swing.ButtonGroup;
 import java.awt.Button;
 import java.awt.event.ActionListener;
@@ -27,51 +26,43 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Writer;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
 import java.awt.event.ActionEvent;
 import java.awt.TextField;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.Label;
 import java.awt.Checkbox;
 import java.awt.Color;
+import java.awt.Desktop;
+
 import javax.swing.JTextArea;
 import javax.swing.SwingWorker;
 
-import org.apache.lucene.document.DateTools;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.DocumentStoredFieldVisitor;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FloatPoint;
 import org.apache.lucene.document.IntPoint;
-import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.document.StoredField;
-import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexWriter;
 
 import java.awt.SystemColor;
 import javax.swing.JTabbedPane;
 import javax.swing.JPanel;
-import javax.swing.JComboBox;
 import java.awt.BorderLayout;
 import javax.swing.Icon;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-
 import java.nio.file.Paths;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
@@ -80,16 +71,12 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.SortField.Type;
 import org.apache.lucene.search.SortedNumericSortField;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.NumericUtils;
 
 import javax.swing.BoxLayout;
-import java.awt.Component;
 import net.miginfocom.swing.MigLayout;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
@@ -126,11 +113,17 @@ public class FimArchiveSearchGUI {
 	static float minPercentageRatingFloat = -1;
 
 	static SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd");
-	static final int maxNumberOfResultsShown = 5000;
-	static final int updateInterval = 2500;
+	static final int maxNumberOfResultsShown = 5000;// when a checkbox is marked
+	// limit the results so it doesn't lag the program out. user can disable
+	// this if they want to see all results. sorry for hard coding the number
+	static final int updateInterval = 2500;// used to create messages like
+	// "scanned 2500 stories"
+	// "scanned 5000 stories"
+	// etc so the user knows the program is working and hasn't crashed
 	static final int descriptionMaxLineLength = 120;// unused, try to get it working without ruining the description
 
-	static long startTimeMilliseconds = 0;
+	static long startTimeMilliseconds = 0;// used to measure how long stuff takes
+
 	static DecimalFormat df = new DecimalFormat();
 
 	// GUI
@@ -202,6 +195,9 @@ public class FimArchiveSearchGUI {
 	private final static TextArea prequel = new TextArea();
 	private final static JTextField siq = new JTextField();
 	private final static Label label_14 = new Label("Author Name");
+	private final Button button_2 = new Button("Open story");
+	private final JTextArea txtrCopyStoryId = new JTextArea();
+	private final TextField idOfStoryToOpenTextBox = new TextField();
 
 	/**
 	 * Launch the application.
@@ -233,9 +229,9 @@ public class FimArchiveSearchGUI {
 	private void initialize() {
 		siq.setFont(new Font("Arial", Font.PLAIN, 20));
 		siq.setColumns(10);
-		// Logic
+		// When reading index.json, ignore useless attributes.
+		// This makes it faster
 		arrayOfUselessProperties.clear();
-		arrayOfUselessProperties.add("archive");
 		arrayOfUselessProperties.add("avatar");
 		arrayOfUselessProperties.add("color");
 		arrayOfUselessProperties.add("cover_image");
@@ -318,6 +314,39 @@ public class FimArchiveSearchGUI {
 
 		doneLuceneSetupCheckbox.setLabel("Done Lucene setup");
 		doneLuceneSetupCheckbox.setFont(new Font("Arial", Font.PLAIN, 23));
+		txtrCopyStoryId.setText("Copy story ID to clipboard \r\nthen click button below to open");
+		txtrCopyStoryId.setForeground(Color.GRAY);
+		txtrCopyStoryId.setFont(new Font("Arial", Font.PLAIN, 20));
+		txtrCopyStoryId.setEditable(false);
+		txtrCopyStoryId.setBackground(SystemColor.menu);
+
+		numberFilters.add(txtrCopyStoryId);
+		button_2.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				try {
+					String thePathToOpen = "default path";
+					thePathToOpen = inputIdGetPath(idOfStoryToOpenTextBox.getText());
+					if (thePathToOpen.equals("default text")) {
+						goodPrint(endOfLine + "ID must be a number");
+					} else {
+						File file = new File(thePathToOpen);
+						Desktop desktop = Desktop.getDesktop();
+						desktop.open(file);
+					}
+
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
+			}
+		});
+		idOfStoryToOpenTextBox.setText("Put Id here");
+		idOfStoryToOpenTextBox.setFont(new Font("Arial", Font.PLAIN, 20));
+
+		numberFilters.add(idOfStoryToOpenTextBox);
+		button_2.setFont(new Font("Arial", Font.PLAIN, 23));
+
+		numberFilters.add(button_2);
 
 		JTextArea txtrLeave = new JTextArea();
 		numberFilters.add(txtrLeave);
@@ -448,8 +477,8 @@ public class FimArchiveSearchGUI {
 
 		tabbedPane.addTab("Sequel/Prequel finder", null, panel_1, null);
 		tabbedPane.setEnabledAt(1, true);
-		panel_1.setLayout(new MigLayout("", "[40%,grow,fill][40%,fill][20%,grow,fill]",
-				"[7%,fill][4.71%,fill][2%,fill][25%,grow,fill][10%,fill][25%,fill]"));
+		panel_1.setLayout(
+				new MigLayout("", "[40%,grow,fill][40%,fill][20%,grow,fill]", "[10%][10%][21.38%][10%][35%]"));
 
 		// miglayout2
 		Label label_10 = new Label("Story ID");
@@ -485,24 +514,24 @@ public class FimArchiveSearchGUI {
 		prequel.setRows(5);
 		prequel.setFont(new Font("Arial", Font.PLAIN, 20));
 
-		panel_1.add(prequel, "cell 0 3 2 1");
+		panel_1.add(prequel, "cell 0 2 2 1,growy");
 		lblPrequelifThere.setFont(new Font("Tahoma", Font.PLAIN, 24));
 		lblPrequelifThere.setHorizontalAlignment(SwingConstants.CENTER);
 
-		panel_1.add(lblPrequelifThere, "cell 2 3");
+		panel_1.add(lblPrequelifThere, "cell 2 2");
 
-		panel_1.add(siq, "cell 0 4 2 1,growx");
+		panel_1.add(siq, "cell 0 3 2 1,growx");
 		lblTheStoryLooking.setHorizontalAlignment(SwingConstants.CENTER);
 		lblTheStoryLooking.setFont(new Font("Tahoma", Font.PLAIN, 24));
 
-		panel_1.add(lblTheStoryLooking, "cell 2 4");
+		panel_1.add(lblTheStoryLooking, "cell 2 3");
 		sequels.setFont(new Font("Arial", Font.PLAIN, 20));
 
-		panel_1.add(sequels, "cell 0 5 2 1");
+		panel_1.add(sequels, "cell 0 4 2 1,growy");
 		lblSequelsIfThere.setHorizontalAlignment(SwingConstants.CENTER);
 		lblSequelsIfThere.setFont(new Font("Tahoma", Font.PLAIN, 24));
 
-		panel_1.add(lblSequelsIfThere, "cell 2 5");
+		panel_1.add(lblSequelsIfThere, "cell 2 4");
 
 		loadTagTextAreasIntoTagTestAreasArrayList();
 
@@ -533,6 +562,49 @@ public class FimArchiveSearchGUI {
 
 	// my methods below
 
+	public static String inputIdGetPath(String inputIdString) throws IOException {
+		String pathFound = "default text";
+
+		if (!isThisStringAnInteger(inputIdString)) {
+			pathFound = "default text";
+			return pathFound;
+		}
+
+		StandardAnalyzer analyzer = new StandardAnalyzer();
+		String SRC_FOLDER = "theLuceneIAAndex";
+		FSDirectory index = FSDirectory.open(Paths.get(SRC_FOLDER));
+		IndexWriterConfig config = new IndexWriterConfig(analyzer);
+		IndexWriter w = new IndexWriter(index, config);
+
+		int theIDToLookFor = Integer.parseInt(inputIdString);
+
+		Query idQuery = IntPoint.newExactQuery("ID", theIDToLookFor);
+
+		w.close();
+
+		// 3. search
+		int hitsPerPage = 999999;
+		IndexReader reader1 = DirectoryReader.open(index);
+		IndexSearcher searcher = new IndexSearcher(reader1);
+
+		Sort sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, false));
+
+		TopDocs docs = searcher.search(idQuery, hitsPerPage, sort, true, true);
+		ScoreDoc[] hits = docs.scoreDocs;
+
+		// look for the story in question
+		if (hits.length == 0) {
+			System.out.println("There is no story with ID " + theIDToLookFor);
+		}
+
+		for (int i = 0; i < hits.length; ++i) {
+			int docId = hits[i].doc;
+			Document d = searcher.doc(docId);
+			pathFound = d.get("path");
+		}
+		return pathFound;
+	}
+
 	/**
 	 * 
 	 * @throws IOException
@@ -552,29 +624,20 @@ public class FimArchiveSearchGUI {
 			return;
 		}
 
-		// 0. Specify the analyzer for tokenizing text.
-		// The same analyzer should be used for indexing and searching
 		StandardAnalyzer analyzer = new StandardAnalyzer();
 
-		// 1. create the index
 		String SRC_FOLDER = "theLuceneIAAndex";
 
-		// Directory index = new RAMDirectory();
 		FSDirectory index = FSDirectory.open(Paths.get(SRC_FOLDER));
-		IndexWriterConfig config = new IndexWriterConfig(analyzer);
-		IndexWriter w = new IndexWriter(index, config);
 
 		// 2. query
 		if (!isThisStringAnInteger(IDfield.getText())) {
 			goodPrint("ID must be a number", 1);
-			w.close();
 			return;
 		}
 		int theIDToLookFor = Integer.parseInt(IDfield.getText());
 
 		Query idQuery = IntPoint.newExactQuery("ID", theIDToLookFor);
-
-		w.close();
 
 		// 3. search
 		int hitsPerPage = 999999;
@@ -586,7 +649,7 @@ public class FimArchiveSearchGUI {
 		TopDocs docs = searcher.search(idQuery, hitsPerPage, sort, true, true);
 		ScoreDoc[] hits = docs.scoreDocs;
 
-		//look for the story in question
+		// look for the story in question
 		if (hits.length == 0) {
 			goodPrint("There is no story with ID " + theIDToLookFor, 2);
 			return;
@@ -622,7 +685,7 @@ public class FimArchiveSearchGUI {
 			goodPrint(stringBuilder.toString(), 1);
 		}
 
-		//look for sequels if there are any
+		// look for sequels if there are any
 		Query sequelQuery = IntPoint.newExactQuery("prequelID", theIDToLookFor);
 		docs = searcher.search(sequelQuery, hitsPerPage, sort, true, true);
 		hits = docs.scoreDocs;
@@ -987,6 +1050,7 @@ public class FimArchiveSearchGUI {
 	/**
 	 * 
 	 * This function takes index.json and creates the Lucene index
+	 * 
 	 * @throws ParseException
 	 * @throws org.apache.lucene.queryparser.classic.ParseException
 	 */
@@ -1103,7 +1167,7 @@ public class FimArchiveSearchGUI {
 					} else if (indents == 2 && name.equals("date_published")) {
 						temp.datePublishedString = s.substring(0, 10).replace('-', '/');
 						temp.datePublishedObject = formatter.parse(temp.datePublishedString);
-					} else if (indents == 3 && name.equals("name")) {
+					} else if (indents == 3 && name.equals("name")) {// author name
 						temp.author = s;
 					} else if (name.equals("completion_status")) {
 						temp.completionStatus = s;
@@ -1112,6 +1176,8 @@ public class FimArchiveSearchGUI {
 					} else if (name.equals("content_rating")) {
 						temp.contentRating = s;
 						temp.tags.add(s);
+					} else if (name.equals("path")) {
+						temp.path = s;
 					}
 					break;
 				case NUMBER:
@@ -1174,6 +1240,7 @@ public class FimArchiveSearchGUI {
 
 	/**
 	 * This functions searches for stuff. It is the most important function.
+	 * 
 	 * @throws IOException
 	 * @throws org.apache.lucene.queryparser.classic.ParseException
 	 * @throws java.text.ParseException
@@ -1196,15 +1263,18 @@ public class FimArchiveSearchGUI {
 		IndexWriter indexWriter = new IndexWriter(index, config);
 
 		// 2. query
-		// the "title" arg specifies the default field to use
-		// when no field is explicitly specified in the query.
 		QueryParser qp = new QueryParser("title", analyzer);
-		// System.out.println("title contains: " + titleContainsTextBox.getText());
-		// Query q = qp.parse("title:\"pony\""); //THIS IS HOW TO DO IT
-		
-		//word queries
+
+		// word queries
+
 		String theString = "";
-		theString += "filler:abcde";
+
+		theString += "filler:abcde";// This is necessary. It seems useless, but it isn't.
+		// This is because Lucene needs some kind of filter. If the user searches with
+		// no parameters, it won't have any filters. This is a dummy filter so
+		// it still works with no parameters.
+		// also it needs to be 5+ characters long
+
 		if (titleContainsString.length() > 0) {
 			titleContainsString = "\"" + titleContainsString + "\"";
 			// theString += (" AND !title:" + titleContainsString); //how to exclude
@@ -1212,13 +1282,11 @@ public class FimArchiveSearchGUI {
 		}
 		if (descriptionContainsString.length() > 0) {
 			descriptionContainsString = "\"" + descriptionContainsString + "\"";
-			// theString += (" AND !title:" + titleContainsString); //how to exclude
 			theString += (" AND description:" + descriptionContainsString);
 		}
-		String authorString = authorTextField.getText();
 		if (authorTextField.getText().length() > 0) {
+			String authorString = authorTextField.getText();
 			authorString = "\"" + authorString + "\"";
-			// theString += (" AND !title:" + titleContainsString); //how to exclude
 			theString += (" AND author:" + authorString);
 			System.out.println(authorTextField.getText());
 			System.out.println(theString);
@@ -1231,8 +1299,8 @@ public class FimArchiveSearchGUI {
 			badTags.set(i, "\"" + badTags.get(i) + "\"");
 			theString += (" AND !tagsString:" + badTags.get(i));
 		}
-		
-		//numeric queries
+
+		// numeric queries
 		Query minLikesQuery;
 		Query minAndMaxWordsQuery;
 		Query datePublishedQuery;
@@ -1251,7 +1319,8 @@ public class FimArchiveSearchGUI {
 		} else if (maxWordsInt > -1) {
 			minAndMaxWordsQuery = IntPoint.newRangeQuery("words", Integer.MIN_VALUE, maxWordsInt);
 		} else {
-			minAndMaxWordsQuery = IntPoint.newRangeQuery("words", Integer.MIN_VALUE, Integer.MAX_VALUE);
+			minAndMaxWordsQuery = IntPoint.newRangeQuery("words", Integer.MIN_VALUE, Integer.MAX_VALUE);// same as no
+																										// limit
 		}
 		int earliestAllowedPublishDateInt;
 		String earliestAllowedPublishDateStringWithoutSlashes;
@@ -1262,14 +1331,14 @@ public class FimArchiveSearchGUI {
 			earliestAllowedPublishDateStringWithoutSlashes = earliestAllowedPublishDate.getText().replace("/", "");
 			earliestAllowedPublishDateInt = Integer.parseInt(earliestAllowedPublishDateStringWithoutSlashes);
 		} else {
-			earliestAllowedPublishDateInt = 0;
+			earliestAllowedPublishDateInt = 0;// same as no limit
 		}
 
 		if (latestAllowedPublishDate.getText().length() > 0) {
 			latestAllowedPublishDateStringWithoutSlashes = latestAllowedPublishDate.getText().replace("/", "");
 			latestAllowedPublishDateInt = Integer.parseInt(latestAllowedPublishDateStringWithoutSlashes);
 		} else {
-			latestAllowedPublishDateInt = Integer.MAX_VALUE;
+			latestAllowedPublishDateInt = Integer.MAX_VALUE;// same as no limit
 		}
 
 		datePublishedQuery = IntPoint.newRangeQuery("datePublishedInt", earliestAllowedPublishDateInt,
@@ -1278,7 +1347,7 @@ public class FimArchiveSearchGUI {
 		if (minPercentageRatingFloat > 0) {
 			percentRatingQuery = FloatPoint.newRangeQuery("percentRating", minPercentageRatingFloat, Integer.MAX_VALUE);
 		} else {
-			percentRatingQuery = FloatPoint.newRangeQuery("percentRating", -10, 200);
+			percentRatingQuery = FloatPoint.newRangeQuery("percentRating", -10, 200);// same as no limit
 
 		}
 
@@ -1286,12 +1355,12 @@ public class FimArchiveSearchGUI {
 			theString += (" AND completionStatus:" + "complete");
 		}
 
-		//word queries
+		// word queries
 		Query q = qp.parse(theString);
 
-		//numeric queries
+		// numeric queries
 		BooleanQuery.Builder booleanQueryBuilder = new BooleanQuery.Builder();
-		
+
 		booleanQueryBuilder.add(q, BooleanClause.Occur.MUST);
 		booleanQueryBuilder.add(minLikesQuery, BooleanClause.Occur.MUST);
 		booleanQueryBuilder.add(minAndMaxWordsQuery, BooleanClause.Occur.MUST);
@@ -1302,7 +1371,6 @@ public class FimArchiveSearchGUI {
 		indexWriter.close();
 
 		// 3. search
-		int hitsPerPage = 999999;
 		IndexReader reader1 = DirectoryReader.open(index);
 		IndexSearcher searcher = new IndexSearcher(reader1);
 
@@ -1317,11 +1385,11 @@ public class FimArchiveSearchGUI {
 		} else if (percentRatingRadioButton.isSelected()) {
 			sort = new Sort(new SortedNumericSortField("percentRating", SortField.Type.LONG, true));
 		} else if (oldestFirstRadioButton.isSelected()) {
-			sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, true));
-		} else if (newestFirstRadioButton.isSelected()) {
 			sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, false));
+		} else if (newestFirstRadioButton.isSelected()) {
+			sort = new Sort(new SortedNumericSortField("datePublishedInt", SortField.Type.LONG, true));
 		}
-		TopDocs docs = searcher.search(theActualBooleanQuery, hitsPerPage, sort, true, true);
+		TopDocs docs = searcher.search(theActualBooleanQuery, 9999999, sort, true, true);
 		ScoreDoc[] hits = docs.scoreDocs;
 
 		// 4. display results
@@ -1355,7 +1423,7 @@ public class FimArchiveSearchGUI {
 			@Override
 			protected Void doInBackground() throws Exception {
 				for (int i = 0; i < hits.length; ++i) {
-					
+
 					int docId = hits[i].doc;
 					Document d = searcher.doc(docId);
 					addStoryToBufferString(stringBuilder, d);
@@ -1364,7 +1432,8 @@ public class FimArchiveSearchGUI {
 					}
 				}
 
-				goodPrint(endOfLine + "Done finding results. Now printing. " + "The program will appear to freeze for another "
+				goodPrint(endOfLine + "Done finding results. Now printing. "
+						+ "The program will appear to freeze for another "
 						+ df2.format(estimatedSecondsTheProgramWillFreezeFor * 0.8) + " seconds" + endOfLine
 						+ endOfLine);
 
@@ -1405,6 +1474,7 @@ public class FimArchiveSearchGUI {
 		stringBuilder.append("Word Count: " + d.get("words") + endOfLine);
 		stringBuilder.append("Content Rating: " + d.get("contentRating") + endOfLine);
 		stringBuilder.append("Tags: " + Arrays.asList(d.get("tagsString").split(",")) + endOfLine);
+		//stringBuilder.append("Path: " + d.get("path") + endOfLine); //used for debugging
 		stringBuilder.append(endOfLine);
 	}
 
@@ -1434,6 +1504,11 @@ public class FimArchiveSearchGUI {
 	public static void addDoc(IndexWriter w, FimfictionStory theStoryToBeAddedToIndex) throws IOException {
 		Document doc = new Document();
 		doc.add(new org.apache.lucene.document.TextField("filler", "abcde", Field.Store.YES));
+		// This filler is necessary. It seems useless, but it isn't.
+		// This is because Lucene needs some kind of filter. If the user searches with
+		// no parameters, it won't have any filters. This is a dummy filter so
+		// it still works with no parameters.
+		// also it needs to be at least 5+ characters long
 		doc.add(new org.apache.lucene.document.TextField("title", theStoryToBeAddedToIndex.title, Field.Store.YES));
 
 		// use a string field for desc because we don't want it tokenized
@@ -1498,6 +1573,8 @@ public class FimArchiveSearchGUI {
 
 		doc.add(new org.apache.lucene.document.IntPoint("prequelID", theStoryToBeAddedToIndex.prequelID));
 		doc.add(new StoredField("prequelID", theStoryToBeAddedToIndex.prequelID));
+
+		doc.add(new org.apache.lucene.document.TextField("path", theStoryToBeAddedToIndex.path, Field.Store.YES));
 
 		w.addDocument(doc);
 	}

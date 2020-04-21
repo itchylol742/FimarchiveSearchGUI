@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import org.ietf.jgss.Oid;
-
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
@@ -33,7 +31,7 @@ public class FimArchiveSearchConsole {
 	public static void main(String[] args) {
 
 		arrayOfUselessProperties.clear();
-		arrayOfUselessProperties.add("archive");
+		//arrayOfUselessProperties.add("archive");
 		arrayOfUselessProperties.add("avatar");
 		arrayOfUselessProperties.add("color");
 		arrayOfUselessProperties.add("cover_image");
@@ -45,7 +43,7 @@ public class FimArchiveSearchConsole {
 			goodTags.add("Comedy");
 			badTags.add("Spike");
 
-			JsonReader reader = new JsonReader(new FileReader("C:\\Desktop 2\\Fimfiction Archive\\shortIndex.json"));
+			JsonReader reader = new JsonReader(new FileReader("sampleIndex.json"));
 			while (true) {
 				JsonToken token = reader.peek();
 				switch (token) {
@@ -112,12 +110,15 @@ public class FimArchiveSearchConsole {
 
 					if (arrayOfUselessProperties.contains(name)) {
 						// indent();
-						// goodPrint("--skipping useless property " + name + "--\n");
+						//goodPrint("--skipping useless property " + name + "--\n");
 						reader.skipValue();
 					}
+					
 					break;
 				case STRING:
 					String s = reader.nextString();
+
+					System.out.println("string variable " + name);
 					if (indents == 4 && name.equals("name")) {
 						temp.tags.add(s);
 					} else if (indents == 2 && name.equals("title")) {
@@ -142,6 +143,11 @@ public class FimArchiveSearchConsole {
 						// goodPrint("word count " + n + "\n");
 						temp.words = n;
 					}
+					else if (name.equals("id")) {
+						System.out.println("got ID " + n + " indent " + indents);
+						
+					}
+					
 					break;
 				case BOOLEAN:
 					boolean b = reader.nextBoolean();

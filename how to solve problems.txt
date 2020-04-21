@@ -1,0 +1,5 @@
+If you click search with "Done Lucene setup" unchecked and nothing happens after
+5 seconds, make sure index.json is in the same directory as the jar.
+
+If you click open story and nothing happens, make sure the epub folder is
+in the same directory

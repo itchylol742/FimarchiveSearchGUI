@@ -1,23 +1,23 @@
 5 good tags then 5 bad tags. Hardcoded
-GOODtwilight sparkle
+GOODtwilight
+GOODmystery
 GOOD
 GOOD
 GOOD
-GOOD
-BAD rarity
-BAD spike
+BAD 
+BAD 
 BAD 
 BAD 
 BAD 
 Sort by:
-views
+words
 Min likes, min words, max words, min % rating - blank for no filter
-
+10
 
 
 
 Completed stories only? y/n
-n
+y
 earliest allowed publish date in the format YYYY/MM/DD - blank for no filter
 
 latest allowed publish date in the format YYYY/MM/DD - blank for no filter
