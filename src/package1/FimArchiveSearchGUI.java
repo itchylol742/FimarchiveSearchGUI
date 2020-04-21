@@ -240,7 +240,7 @@ public class FimArchiveSearchGUI {
 		// GUI
 
 		frmTest = new JFrame();
-		frmTest.setTitle("Fimarchive Searcher 1.01 by itchylol742");
+		frmTest.setTitle("Fimarchive Searcher 1.03 by itchylol742");
 		frmTest.setBounds(150, 25, 1394, 953);
 		frmTest.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frmTest.getContentPane().setLayout(new BorderLayout(0, 0));
@@ -286,7 +286,7 @@ public class FimArchiveSearchGUI {
 		numberFilters.add(label_5);
 		label_5.setFont(new Font("Arial", Font.PLAIN, 30));
 		numberFilters.add(maxWordsText);
-		maxWordsText.setText("10");
+		maxWordsText.setText("3000");
 		maxWordsText.setFont(new Font("Arial", Font.PLAIN, 20));
 		numberFilters.add(label_8);
 		label_8.setFont(new Font("Arial", Font.PLAIN, 30));
@@ -1075,6 +1075,9 @@ public class FimArchiveSearchGUI {
 
 			goodPrint(" --- Creating Lucene index --- " + endOfLine);
 			goodPrint(" It should take about 45 seconds" + endOfLine);
+			goodPrint(" There will be text saying Scanned 2500 stories.. etc" + endOfLine);
+			goodPrint(" If nothing happens after 5 seconds, make sure you have" + endOfLine);
+			goodPrint(" index.json in the same directory" + endOfLine);
 			goodPrint(endOfLine);
 
 			JsonReader reader = new JsonReader(new FileReader("index.json"));
