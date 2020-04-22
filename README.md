@@ -27,7 +27,7 @@ Follow the built-in instructions in the text box
 
 This is what the directory should look like before you run the program the first time
 
-![alt text](/after.png)
+![alt text](/after.PNG)
 
 This is what it should look like after running it the first time
 
@@ -39,6 +39,10 @@ Put everything in a folder in your Eclipse workspace
 /eclipseWorkspaceFolder/FimarchiveSearchGUI/all the files go here
 
 Compile and run FimArchiveSearchGUI.java
+
+![alt text](developerDirectory.PNG)
+
+What the directory should look like if you're doing this
 
 ## To compile and run in Eclipse IDE __without downloading a 5.9 GB file__
 
