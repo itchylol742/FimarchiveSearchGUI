@@ -27,6 +27,6 @@ Small improvements
 Under the hood programming improvements
 
 
-- April 21 2020 - 1.03
+- April 21, 2020 - 1.03
 
 Added open story by story ID
