@@ -1,0 +1,1 @@
+java -jar -Dsun.java2d.uiScale=1.1 "FimarchiveSearchGUI 1.03.jar"
