@@ -48,4 +48,7 @@ What the directory should look like if you're doing this
 
 Same as above, but go into FimArchiveSearchGUI.java and set useSampleIndex to true. This will use a 1 MB sampleIndex.json which comes with the project, and only contains a small portion of the proper index.json.
 
+## About/other
+
+I created this in 2018 after finding an offline archive of fimfiction.net, Fimfarchive. The archive had no way of searching through the stories so I asked if there was a way, and the author said there was no way unless I happened to be a programmer. And I was, so I decided to do something about it. I wanted to replicate most of the functionality of the fimfiction.net search, with parameters like including and excluding tags, min and max word count, rating, publish date, etc. I've been on the internet for some time and I know that no website lasts forever. One day fimfiction.net will go down forever and the only way to read fanfictions that were hosted there will be to download the offline archive. When that happens, I want the few remaining MLP fanfiction enthusiasts to have a way to search through the archive. I'm writing this in 2023, hello future MLP fanfiction enthusiasts!
 
