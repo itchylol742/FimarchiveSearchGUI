@@ -4,8 +4,8 @@
 
 (the gif is outdated, the prequel/sequel finder is complete now)
 
-A program to search and filter Fimarchive, which is an archive of every story on Fimfiction.net.
-To get Fimarchive - at the time of writing, a 5.9 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official (if you want to try out the program without download a 5.9 GB file, instructions below)
+A program to search and filter Fimarchive, which is an offline archive of every story on Fimfiction.net.
+To get Fimarchive - at the time of writing, a 7.5 GB file, [go here](https://www.fimfiction.net/user/116950/Fimfarchive/blog) and click on Direct: Official (if you want to try out the program without download a 7.5 GB file, instructions below)
 
 The program was tested on Windows, it might or might not work on other operating systems
 
@@ -13,7 +13,7 @@ The program was tested on Windows, it might or might not work on other operating
 
 Download FimarchiveSearchGUI(version).jar
 
-Download Fimarchive (the 5.9 GB file)
+Download Fimarchive
 
 Extract index.json from Fimarchive (approximately 800 MB json file)
 
@@ -50,5 +50,5 @@ Same as above, but go into FimArchiveSearchGUI.java and set useSampleIndex to tr
 
 ## About/other
 
-I created this in 2018 after finding an offline archive of fimfiction.net, Fimfarchive. The archive had no way of searching through the stories so I asked if there was a way, and the author said there was no way unless I happened to be a programmer. And I was, so I decided to do something about it. I wanted to replicate most of the functionality of the fimfiction.net search, with parameters like including and excluding tags, min and max word count, rating, publish date, etc. I've been on the internet for some time and I know that no website lasts forever. One day fimfiction.net will go down forever and the only way to read fanfictions that were hosted there will be to download the offline archive. When that happens, I want the few remaining MLP fanfiction enthusiasts to have a way to search through the archive. I'm writing this in 2023, hello future MLP fanfiction enthusiasts!
+I created this in 2018 after finding an offline archive of fimfiction.net, Fimfarchive. The archive had no way of searching through the stories so I asked if there was a way, and the author said there was no way unless I happened to be a programmer. And I was, so I decided to do something about it. I wanted to replicate most of the functionality of the fimfiction.net search, with parameters like including and excluding tags, min and max word count, rating, publish date, etc. The 1.0 if you will, was finished in 2018, then I updated it in 2020 to use a third party library to make the search much faster, open a story by its ID, as well as find prequels/sequels to a story by its ID. I've been on the internet for some time and I know that no website lasts forever. One day fimfiction.net will go down forever and the only way to read fanfictions that were hosted there will be to download the offline archive. When that happens, I want the few remaining MLP fanfiction enthusiasts to have a way to search through the archive. I'm writing this in 2023, hello future MLP fanfiction enthusiasts!
 
